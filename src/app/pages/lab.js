@@ -14,6 +14,7 @@ import { createHmi } from '../machine/hmi.js';
 import { createGuidePanel } from '../machine/guidePanel.js';
 import { loadLectures, lectureFor, hasSeenLab, markSeenLab } from '../lectures.js';
 import { createResultsPanel } from '../machine/resultsPanel.js';
+import { openDemo, demoIndex } from '../machine/demoDialog.js';
 
 /** Lỗi lúc chạy/biên dịch (engine) → 1 dòng, dịch theo ngôn ngữ hiện tại. */
 const errText = (e) => `${e.block || ''}${e.network !== undefined ? ` ${t('info.network')} ${+e.network + 1}` : ''}${e.line ? ` ${t('info.line')} ${e.line}` : ''}: ${trText(e.message)}`;
@@ -53,6 +54,9 @@ export async function labPage({ id }, { user, carry }) {
   const scan = h('span.scan.mono', '—');
   const btnRun = h('button.btn.run', { type: 'button', title: 'RUN', onclick: () => run() }, icon('play', { size: 14 }), 'RUN');
   const btnStop = h('button.btn.stopb', { type: 'button', title: 'STOP', onclick: () => stop() }, icon('stop', { size: 14 }), 'STOP');
+  const btnDemo = h('button.btn.demo-btn', { type: 'button', title: t('demo.tip'), disabled: true, onclick: () => openDemo({ labId: demoId, title: `${lab.id} — ${lab.title}` }) }, icon('film', { size: 15 }), h('span.hide-mid', t('demo.btn')));
+  const demoId = lab.engineId || lab.id;
+  demoIndex().then((idx) => { const ok = !eng.isFake && !!idx[demoId]; btnDemo.disabled = !ok; btnDemo.title = ok ? t('demo.tip') : t('demo.none'); });
   const btnMon = h('button.btn', { type: 'button', 'aria-pressed': 'false', title: t('lab.monitorTip'), onclick: () => setMonitor(!monitor) }, icon('eye', { size: 15 }), h('span.hide-mid', t('lab.monitor')));
   const toolbar = h('div.lab-toolbar', { role: 'toolbar', 'aria-label': t('lab.toolbar') },
     h('a.btn.ghost.sm', { href: '#/home', title: t('nav.home') }, icon('chevronL', { size: 14 }), h('span.lab-tb-id', lab.id)),
@@ -63,6 +67,8 @@ export async function labPage({ id }, { user, carry }) {
     h('div.cpu-box', stLed, stText), btnRun, btnStop,
     btnMon,
     h('div.scan-box', { title: t('lab.scanTip') }, h('span.muted.small', t('lab.scan')), scan),
+    h('span.tb-sep'),
+    btnDemo,
     h('span.spacer'),
     saveState,
     h('button.btn.ghost', { type: 'button', title: t('lab.resetMachineTip'), onclick: () => { m.reset(); mv.clearForces(); toast(t('lab.machineReset'), 'info', 1500); } }, icon('reset', { size: 15 }), h('span.hide-mid', t('lab.resetMachine'))),

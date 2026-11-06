@@ -303,3 +303,16 @@ English into the project), proper names. Gaps: watch-table forces set from the w
 but the table's "F" markers reset after a language switch; a grading run in progress during a switch finishes on the
 old (detached) results panel — re-run "Test grade"; strings coming from the engine that `trText` does not know stay
 Vietnamese (fallback by design). English plurals use "(s)".
+
+## Chạy thử mẫu (demo run)
+
+- Nút **Chạy thử mẫu** trên thanh công cụ trang lab → hộp thoại `src/app/machine/demoDialog.js`: máy mô phỏng riêng
+  (`createMachineView`, bảng nút chỉ xem), chạy/tạm dừng, chạy lại, tốc độ 0,5/1/2/4×, thanh tua, chú thích hiện tại
+  và nhật ký (chú thích, nhấn/nhả nút, đầu ra đổi kèm mô tả I/O). Không đụng PLC/máy của bài làm. Chuỗi giao diện: khóa `demo.*`.
+- Trình phát `src/sim/demo.js` (`DemoPlayer`): áp sự kiện của trace (`o` đầu ra, `p` nút, `n` chú thích {vi,en}) theo
+  từng bước vật lý 1 ms; `Math.random` được thay bằng PRNG có seed (mulberry32) trong lúc tạo máy/chạy bước → tất định.
+- Ghi trace: `node tools/record-demos.mjs` chạy lời giải mẫu với cùng seed, theo kịch bản trong `SCRIPTS` (L01–L03 riêng,
+  còn lại: chờ → Start → chạy → Stop), rồi phát lại và so khớp stats/inputs/thời gian. Ra `assets/demos/<lab>.json`
+  (2–6 KB) + `index.json`. Không chứa code lời giải.
+- `modal()` nhận thêm `cls`.
+

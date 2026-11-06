@@ -6,6 +6,8 @@ const P = {
   download: 'M12 3v11 M7 10l5 5 5-5 M4 19h16',
   play: 'M7 4l13 8-13 8z',
   stop: 'M6 6h12v12H6z',
+  pause: 'M7 5h3v14H7z M14 5h3v14h-3z',
+  film: 'M3 5h18v14H3z M7 5v14 M17 5v14 M3 9h4 M3 15h4 M17 9h4 M17 15h4 M10.5 9.5l4 2.5-4 2.5z',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   send: 'M3 11l18-8-8 18-2-8z',
   undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',

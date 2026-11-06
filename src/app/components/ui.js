@@ -13,7 +13,7 @@ export function toast(msg, kind = 'info', ms = 3200) {
 }
 
 /** modal({title, body, actions:[{label, primary, danger, onClick→(close)=>…}]}) → Promise<value|null> */
-export function modal({ title, body, actions, width }) {
+export function modal({ title, body, actions, width, cls }) {
   return new Promise((resolve) => {
     const prevFocus = document.activeElement;
     const close = (val = null) => { back.remove(); document.removeEventListener('keydown', onKey, true); prevFocus?.focus?.(); resolve(val); };
@@ -23,7 +23,7 @@ export function modal({ title, body, actions, width }) {
         if (a.onClick) { const r = await a.onClick(close); if (r === false) return; }
         close(a.value !== undefined ? a.value : true);
       } }, a.label));
-    const box = h('div.modal', { role: 'dialog', 'aria-modal': 'true', 'aria-label': title, style: width ? { width: `min(${width}px, 100%)` } : null },
+    const box = h('div.modal', { class: cls || null, role: 'dialog', 'aria-modal': 'true', 'aria-label': title, style: width ? { width: `min(${width}px, 100%)` } : null },
       h('div.modal-h', title), h('div.modal-b', body), h('div.modal-f', acts));
     const back = h('div.modal-back', { onmousedown: (e) => { if (e.target === back) close(null); } }, box);
     document.body.appendChild(back);

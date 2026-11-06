@@ -17,6 +17,16 @@ Khi chạy trên máy (localhost) có thêm nút **Vào vai trò giảng viên**
 > Trang web tĩnh không có server: đăng ký, bài làm, điểm lưu trên trình duyệt của từng sinh viên.
 Máy không có WebGL sẽ hiện sơ đồ 2D thay cho 3D.
 
+## Chạy thử mẫu (cho sinh viên xem trước quy trình)
+
+Trên trang lab có nút **Chạy thử mẫu**: mở một máy mô phỏng riêng chạy theo chương trình mẫu (chạy/tạm dừng, chạy lại, tốc độ 0,5–4×, tua, nhật ký diễn biến có chú thích). Bài làm của sinh viên không bị ảnh hưởng.
+
+Bản chạy thử là "băng ghi" đầu ra PLC + thao tác nút trong `assets/demos/<lab>.json` — **không chứa code lời giải**, nên đưa lên web được. Ghi lại (trên máy giảng viên, cần `private/solutions.js`) mỗi khi sửa lời giải, mô phỏng máy hoặc kịch bản:
+```bash
+node tools/record-demos.mjs          # mọi lab (hoặc: node tools/record-demos.mjs L07 L09)
+```
+Script tự phát lại và so khớp từng lab; kịch bản thao tác (nút nào, lúc nào, chú thích) nằm trong `SCRIPTS` của script. Lab chưa có file thì nút bị mờ.
+
 ## Kiểm thử
 
 ```bash
