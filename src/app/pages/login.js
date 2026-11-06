@@ -1,6 +1,7 @@
 // Đăng ký / Đăng nhập sinh viên (không mật khẩu — trang luyện tập). Giảng viên: chỉ khi chạy trên máy.
 import { h } from '../dom.js';
 import { PUBLIC_MODE } from '../config.js';
+import { loadTeacherConfig } from '../teacherAuth.js';
 import { t } from '../i18n.js';
 import { api, MSSV_RE, normMssv, normName } from '../mockApi.js';
 import { loadClasses } from '../classes.js';
@@ -84,9 +85,21 @@ export async function loginPage() {
   setMode(mode);
   fillClasses();
 
-  const teacherBox = PUBLIC_MODE ? null : h('div.teacher-entry',
-    h('span.muted.small', t('login.teacherLocal')),
-    h('button.btn.sm', { type: 'button', onclick: async () => { await api.loginTeacher(); router.go('/teacher'); } }, icon('user', { size: 13 }), t('login.teacherBtn')));
+  // Đăng nhập giảng viên: ô mật khẩu (ẩn dưới liên kết để không làm rối trang sinh viên)
+  const tErr = h('div.err-text.small', { role: 'alert' });
+  const tPass = h('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Mật khẩu giảng viên', 'aria-label': 'Mật khẩu giảng viên' });
+  const tSubmit = async (e) => {
+    e?.preventDefault();
+    tErr.textContent = '';
+    try { await api.loginTeacher(tPass.value); router.go('/teacher'); } catch (x) { tErr.textContent = x.message || String(x); }
+  };
+  const tForm = h('form.teacher-form', { onsubmit: tSubmit, hidden: true },
+    h('div.teacher-row', tPass, h('button.btn.sm.primary', { type: 'submit' }, icon('user', { size: 13 }), 'Đăng nhập')), tErr);
+  const tToggle = h('button.btn.sm.ghost', { type: 'button', onclick: async () => {
+    if (!PUBLIC_MODE && !(await loadTeacherConfig())) { try { await api.loginTeacher(); router.go('/teacher'); } catch (x) { tErr.textContent = x.message; tForm.hidden = false; } return; }
+    tForm.hidden = !tForm.hidden; if (!tForm.hidden) tPass.focus();
+  } }, icon('user', { size: 13 }), 'Dành cho giảng viên');
+  const teacherBox = h('div.teacher-entry', h('div.teacher-head', tToggle), tForm);
 
   const el = h('div.login-page',
     h('div.login-hero',

@@ -79,7 +79,7 @@ async function show(pageFn, params, { role, active, full } = {}) {
   }
 }
 
-const teacherGuard = (fn) => (p) => (PUBLIC_MODE ? router.go('/home', { replace: true }) : fn(p));
+const teacherGuard = (fn) => async (p) => { const u = await api.getMe(); return u && u.role === 'teacher' ? fn(p) : router.go(u ? '/home' : '/login', { replace: true }); };
 router
   .add('/', async () => { const u = await api.getMe(); router.go(!u ? '/login' : u.role === 'teacher' ? '/teacher' : '/home', { replace: true }); })
   .add('/login', (p) => show(loginPage, p, {}))

@@ -6,6 +6,7 @@
 // Giảng viên: một tài khoản duy nhất, CHỈ khi chạy trên máy (localhost), không bao giờ ở bản công khai.
 import { storage } from './store.js';
 import { PUBLIC_MODE } from './config.js';
+import { loadTeacherConfig, verifyTeacherPassword } from './teacherAuth.js';
 import { COURSE } from './course.js';
 import { clone } from './dom.js';
 import { loadClassesSafe } from './classes.js';
@@ -66,11 +67,11 @@ function save(d) { memo = d; storage.set(K.db, d); }
 function me() {
   const s = storage.get(K.session);
   if (!s) return null;
-  if (s.userId === TEACHER.id) return PUBLIC_MODE ? null : { ...TEACHER };
+  if (s.userId === TEACHER.id) return PUBLIC_MODE && !s.verified ? null : { ...TEACHER };
   return db().users.find((u) => u.id === s.userId && u.role === 'student') || null;
 }
 function need() { const u = me(); if (!u) throw new Error('Chưa đăng nhập'); return u; }
-function needTeacher() { const u = need(); if (u.role !== 'teacher' || PUBLIC_MODE) throw new Error('Không có quyền'); return u; }
+function needTeacher() { const u = need(); if (u.role !== 'teacher') throw new Error('Không có quyền'); return u; }
 const students = (d) => d.users.filter((u) => u.role === 'student');
 const hasData = (d, uid) => Object.keys(d.projects).some((k) => k.startsWith(uid + '|')) || Object.keys(d.submissions).some((k) => k.startsWith(uid + '|'));
 
@@ -109,10 +110,14 @@ export const api = {
     storage.set(K.session, { userId: u.id });
     return delay({ user: clone(u) });
   },
-  /** Chỉ chạy trên máy (localhost). */
-  async loginTeacher() {
-    if (PUBLIC_MODE) throw new Error('Bản công khai không có vai trò giảng viên.');
-    storage.set(K.session, { userId: TEACHER.id });
+  /** Trên máy (localhost): vào thẳng nếu chưa đặt mật khẩu. Trên web: bắt buộc mật khẩu (data/teacher.json). */
+  async loginTeacher(password) {
+    const cfg = await loadTeacherConfig();
+    if (PUBLIC_MODE || cfg) {
+      if (!password) throw new Error('Nhập mật khẩu giảng viên');
+      if (!(await verifyTeacherPassword(password))) throw new Error('Mật khẩu không đúng');
+    }
+    storage.set(K.session, { userId: TEACHER.id, verified: true });
     return delay({ user: { ...TEACHER } });
   },
   async logout() { storage.remove(K.session); return delay(true, 10); },

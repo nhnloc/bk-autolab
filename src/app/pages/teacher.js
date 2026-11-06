@@ -1,5 +1,6 @@
 // Trang giảng viên: danh sách lớp + danh mục lab có máy mô phỏng (xem lời giải tham khảo).
 import { h } from '../dom.js';
+import { PUBLIC_MODE } from '../config.js';
 import { t } from '../i18n.js';
 import { api } from '../mockApi.js';
 import { icon } from '../components/icons.js';
@@ -26,7 +27,7 @@ export async function teacherPage(_, { user }) {
     h('div.card', h('table.table',
       h('thead', h('tr', h('th', 'Lab'), h('th', t('teacher.labTitle')), h('th', t('teacher.machine')), h('th', t('teacher.week')), h('th', ''))),
       h('tbody', machineLabs.map((l) => h('tr', h('td.mono', l.id), h('td', l.title), h('td', MACHINE_TITLES[l.machineId] || l.machineId), h('td', String(l.week ?? '')),
-        h('td', h('a.btn.sm', { href: `#/teacher/solution/${l.id}`, title: t('teacher.solutionTip') }, icon('eye', { size: 14 }), t('teacher.solution')))))))),
+        h('td', PUBLIC_MODE ? h('span.muted.small', 'Lời giải chỉ xem trên máy') : h('a.btn.sm', { href: `#/teacher/solution/${l.id}`, title: t('teacher.solutionTip') }, icon('eye', { size: 14 }), t('teacher.solution')))))))),
   );
   return { el };
 }

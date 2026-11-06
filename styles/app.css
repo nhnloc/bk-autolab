@@ -279,3 +279,8 @@ a.lab-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); bo
 .quiz-fb { margin-top: 6px; font-size: .95em; padding: 6px 8px; border-left: 3px solid var(--border-strong); background: var(--panel-2); border-radius: 0 4px 4px 0; }
 .quiz-q.right .quiz-fb { border-left-color: var(--ok); }
 .quiz-q.wrong .quiz-fb { border-left-color: var(--err); }
+
+/* Đăng nhập giảng viên */
+.teacher-entry { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line, #d0d5db); display: flex; flex-direction: column; gap: 8px; }
+.teacher-form .teacher-row { display: flex; gap: 8px; }
+.teacher-form .teacher-row input { flex: 1; min-width: 0; }
