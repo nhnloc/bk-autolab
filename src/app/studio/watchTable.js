@@ -1,6 +1,7 @@
 // Bảng theo dõi (watch table): toán hạng, định dạng hiển thị, giá trị, ghi (modify), cưỡng bức (force).
 import { h, fmtValue } from '../dom.js';
 import { t } from '../i18n.js';
+import { trText } from '../loc.js';
 import { toast } from '../components/ui.js';
 import { parseLiteral } from './literal.js';
 
@@ -30,8 +31,8 @@ export function createWatchTable(ctx) {
       const mod = h('input.cell.mono', { value: w.modify ?? '', placeholder: 'TRUE / 12 / T#2s', 'aria-label': t('watch.modifyValue'), spellcheck: 'false',
         onchange: (e) => ctx.commit((p) => { p.watch[i].modify = e.target.value.trim(); }, { keepEditor: true }) });
       const plc = () => ctx.getPlc();
-      const doWrite = () => { const v = parseLiteral(mod.value); if (v === undefined) { toast(t('watch.badValue'), 'warn'); return; } try { plc()?.write(w.op, v); toast(t('watch.written', { op: w.op }), 'ok', 1400); } catch (err) { toast(String(err.message || err), 'err'); } };
-      const doForce = () => { const v = parseLiteral(mod.value); if (v === undefined) { toast(t('watch.badValue'), 'warn'); return; } try { plc()?.force(w.op, v); forced.set(w.op, v); render(); } catch (err) { toast(String(err.message || err), 'err'); } };
+      const doWrite = () => { const v = parseLiteral(mod.value); if (v === undefined) { toast(t('watch.badValue'), 'warn'); return; } try { plc()?.write(w.op, v); toast(t('watch.written', { op: w.op }), 'ok', 1400); } catch (err) { toast(trText(String(err.message || err)), 'err'); } };
+      const doForce = () => { const v = parseLiteral(mod.value); if (v === undefined) { toast(t('watch.badValue'), 'warn'); return; } try { plc()?.force(w.op, v); forced.set(w.op, v); render(); } catch (err) { toast(trText(String(err.message || err)), 'err'); } };
       const doUnforce = () => { try { plc()?.unforce(w.op); } catch { /* bỏ qua */ } forced.delete(w.op); render(); };
       tbody.appendChild(h('tr', { class: forced.has(w.op) ? 'forced' : '' },
         h('td.rn', String(i + 1)),

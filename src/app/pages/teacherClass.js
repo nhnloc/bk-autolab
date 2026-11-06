@@ -1,6 +1,7 @@
 // Lớp học (giảng viên): Lịch lab (mở/khóa, tuần, hạn nộp) · Sổ điểm (CSV) · Cài lỗi (xem trước trực tiếp) · Sinh viên.
 import { h, downloadText } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, fmtDateTime } from '../i18n.js';
+import { trMachine } from '../loc.js';
 import { api } from '../mockApi.js';
 import { icon } from '../components/icons.js';
 import { tabBar, toast } from '../components/ui.js';
@@ -10,9 +11,13 @@ import { loadEngine } from '../engine.js';
 import { getLabs, createSession, starterFor } from '../labSession.js';
 import { createMachineView } from '../machine/machineView.js';
 
-export async function classPage({ id }) {
+export async function classPage({ id }, { carry } = {}) {
   const [cls, labs, eng] = await Promise.all([api.getClass(id), getLabs(), loadEngine()]);
-  let tab = 'grades';
+  // Đổi ngôn ngữ: giữ tab, và ở tab Cài lỗi giữ phiên xem trước đang chạy (SV, lab, lỗi đang bật/đã chọn).
+  const keep = carry?.cls?.id === id ? carry.cls : null;
+  if (keep) carry.taken = true;
+  let tab = keep?.tab || 'grades';
+  let detachFault = null; // tab Cài lỗi: tách phiên xem trước để giữ khi đổi ngôn ngữ
   const host = h('div.class-body');
   let cleanup = null;
   const bar = tabBar([
@@ -23,11 +28,11 @@ export async function classPage({ id }) {
   ], tab, (x) => { tab = x; render(); });
 
   async function render() {
-    cleanup?.(); cleanup = null;
+    cleanup?.(); cleanup = null; detachFault = null;
     host.replaceChildren(h('div.muted.pad', t('common.loading')));
     if (tab === 'grades') host.replaceChildren(await gradebook());
     else if (tab === 'schedule') host.replaceChildren(await schedule());
-    else if (tab === 'faults') { const r = await faultsTab(); host.replaceChildren(r.el); cleanup = r.dispose; }
+    else if (tab === 'faults') { const r = await faultsTab(); host.replaceChildren(r.el); cleanup = r.dispose; detachFault = r.detach; }
     else host.replaceChildren(studentsTab());
   }
 
@@ -38,10 +43,10 @@ export async function classPage({ id }) {
     const cols = gb.labs.filter((l) => gb.schedule[l.id]?.open);
     const avg = (sid) => { const g = Object.values(gb.grades[sid] || {}); return g.length ? Math.round(g.reduce((a, x) => a + (x.score / x.max) * 10, 0) / g.length * 10) / 10 : null; };
     const exportCsv = () => {
-      const head = ['MSSV', 'Họ tên', ...cols.map((l) => l.id), 'TB (thang 10)'];
+      const head = [t('cls.csvMssv'), t('cls.name'), ...cols.map((l) => l.id), t('cls.csvAvg')];
       const rows = gb.students.map((s) => [s.mssv || s.username, s.name, ...cols.map((l) => gb.grades[s.id]?.[l.id]?.score ?? ''), avg(s.id) ?? '']);
       const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
-      downloadText(`so-diem_${id}.csv`, csv);
+      downloadText(`${t('cls.csvFile')}_${id}.csv`, csv);
     };
     return h('div.card',
       h('div.card-h', h('b', t('cls.grades')), h('span.muted.small', t('cls.gradesHint')), h('span.spacer'), h('button.btn.sm', { type: 'button', onclick: exportCsv }, icon('csv', { size: 14 }), t('cls.exportCsv'))),
@@ -66,7 +71,7 @@ export async function classPage({ id }) {
     return h('div.card',
       h('div.card-h', h('b', t('cls.schedule')), h('span.muted.small', t('cls.scheduleHint'))),
       h('div.gb-wrap', h('table.table',
-        h('thead', h('tr', h('th', 'Lab'), h('th', t('teacher.labTitle')), h('th', t('cls.part')), h('th', t('cls.open')), h('th', t('teacher.week')), h('th', t('cls.due')))),
+        h('thead', h('tr', h('th', t('common.lab')), h('th', t('teacher.labTitle')), h('th', t('cls.part')), h('th', t('cls.open')), h('th', t('teacher.week')), h('th', t('cls.due')))),
         h('tbody', labs.map((l) => {
           const s = sch[l.id] || {};
           const upd = (patch) => api.updateSchedule(id, l.id, patch).then(() => toast(t('cls.savedSchedule', { id: l.id }), 'ok', 1200));
@@ -83,31 +88,38 @@ export async function classPage({ id }) {
   async function faultsTab() {
     if (!cls.students.length) return { el: h('div.card', h('div.empty', t('cls.noStudents'))), dispose: () => {} };
     const mlabs = labs.filter((l) => l.machineId);
-    let sid = cls.students[0]?.id, lid = mlabs.find((l) => l.machineId)?.id;
-    const stuSel = h('select.select', { 'aria-label': t('cls.student'), onchange: (e) => { sid = e.target.value; build(); } }, cls.students.map((s) => h('option', { value: s.id }, `${s.mssv || s.username} — ${s.name}`)));
-    const labSel = h('select.select', { 'aria-label': 'Lab', onchange: (e) => { lid = e.target.value; build(); } }, mlabs.map((l) => h('option', { value: l.id }, `${l.id} — ${l.title}`)));
+    const fk = keep?.fault;
+    if (keep) keep.fault = null; // chỉ dùng lại một lần
+    let sid = fk?.sid || cls.students[0]?.id, lid = fk?.lid || mlabs.find((l) => l.machineId)?.id;
+    const stuSel = h('select.select', { 'aria-label': t('cls.student'), onchange: (e) => { sid = e.target.value; build(); } }, cls.students.map((s) => h('option', { value: s.id, selected: s.id === sid }, `${s.mssv || s.username} — ${s.name}`)));
+    const labSel = h('select.select', { 'aria-label': t('common.lab'), onchange: (e) => { lid = e.target.value; build(); } }, mlabs.map((l) => h('option', { value: l.id, selected: l.id === lid }, `${l.id} — ${l.title}`)));
     const area = h('div.fault-area');
-    let sess = null, mv = null;
-    const stopAll = () => { mv?.dispose(); sess?.dispose(); mv = null; sess = null; };
-    async function build() {
-      stopAll();
+    let sess = null, mv = null, faultState = null;
+    const stopAll = () => { mv?.dispose(); sess?.dispose(); mv = null; sess = null; faultState = null; };
+    async function build(reuse) {
+      if (reuse) { mv?.dispose(); mv = null; } else stopAll();
       const lab = mlabs.find((l) => l.id === lid);
-      const assigned = new Set(await api.getFaults(lid, sid));
-      sess = createSession(eng, lab.machineId);
+      const assigned = reuse ? reuse.assigned : new Set(await api.getFaults(lid, sid));
+      sess = reuse ? reuse.sess : createSession(eng, lab.machineId);
       const sub = await api.getSubmission(lid, sid);
-      const proj = sub?.project || (await api.getProject(lid, sid)) || starterFor(eng, lab, sess.m.def);
-      const res = sess.load(proj);
+      let res = reuse?.res;
+      if (!reuse) {
+        const proj = sub?.project || (await api.getProject(lid, sid)) || starterFor(eng, lab, sess.m.def);
+        res = sess.load(proj);
+      }
       const src = sub?.project ? t('cls.srcSubmitted') : t('cls.srcStarter');
-      const live = new Set();
-      const faults = sess.m.def.faults || [];
+      const live = reuse ? reuse.live : new Set();
+      const ioForced = reuse?.ioForced || new Map();
+      faultState = { sid, lid, sess, assigned, live, res, ioForced };
+      const faults = trMachine(sess.m.def).faults || [];
       const list = h('div.fault-list', faults.map((f) => {
         const lbl = f.label || f.title || f.id;
         return h('div.fault-row',
-          h('label.switch.sm', { title: t('cls.liveTip') }, h('input', { type: 'checkbox', onchange: (e) => { sess.m.setFault(f.id, e.target.checked); if (e.target.checked) live.add(f.id); else live.delete(f.id); } }), h('span.slider')),
+          h('label.switch.sm', { title: t('cls.liveTip') }, h('input', { type: 'checkbox', checked: live.has(f.id), onchange: (e) => { sess.m.setFault(f.id, e.target.checked); if (e.target.checked) live.add(f.id); else live.delete(f.id); } }), h('span.slider')),
           h('span.grow', lbl),
           h('label.small.row', h('input', { type: 'checkbox', checked: assigned.has(f.id), onchange: (e) => { if (e.target.checked) assigned.add(f.id); else assigned.delete(f.id); } }), t('cls.assign')));
       }));
-      mv = createMachineView({ m: sess.m, getPlc: () => sess.plc, allowOverride: true, compact: true });
+      mv = createMachineView({ m: sess.m, getPlc: () => sess.plc, allowOverride: true, compact: true, ioForced });
       const runBtn = h('button.btn.primary.sm', { type: 'button', disabled: !res.ok, onclick: () => { sess.plc.start(); } }, icon('play', { size: 13 }), 'RUN');
       const stopBtn = h('button.btn.sm', { type: 'button', onclick: () => sess.plc.stop() }, icon('stop', { size: 13 }), 'STOP');
       area.replaceChildren(
@@ -121,22 +133,33 @@ export async function classPage({ id }) {
           h('div.card-h', h('b', t('cls.preview')), h('span.badge', src), res.ok ? null : h('span.badge.err', t('cls.compileFail')), h('span.spacer'), runBtn, stopBtn),
           mv.el));
     }
-    const el = h('div', h('div.row.wrap.fault-pick', h('label.row', h('span.small.muted', t('cls.student')), stuSel), h('label.row', h('span.small.muted', 'Lab'), labSel)), area);
-    await build();
-    return { el, dispose: stopAll };
+    const el = h('div', h('div.row.wrap.fault-pick', h('label.row', h('span.small.muted', t('cls.student')), stuSel), h('label.row', h('span.small.muted', t('common.lab')), labSel)), area);
+    await build(fk && fk.sess ? fk : null);
+    const detach = () => { const f = faultState; mv?.dispose(); mv = null; sess = null; faultState = null; return f; };
+    return { el, dispose: stopAll, detach };
   }
 
   /* ---------- Sinh viên ---------- */
   function studentsTab() {
     if (!cls.students.length) return h('div.card', h('div.empty', t('cls.noStudents')));
     return h('div.card', h('table.table',
-      h('thead', h('tr', h('th', '#'), h('th', 'MSSV'), h('th', t('cls.name')), h('th', t('cls.registered')))),
-      h('tbody', cls.students.map((s, i) => h('tr', h('td', String(i + 1)), h('td.mono', s.mssv || s.username), h('td', s.name), h('td.muted.small', s.createdAt ? new Date(s.createdAt).toLocaleString('vi-VN') : '—'))))));
+      h('thead', h('tr', h('th', '#'), h('th', t('cls.csvMssv')), h('th', t('cls.name')), h('th', t('cls.registered')))),
+      h('tbody', cls.students.map((s, i) => h('tr', h('td', String(i + 1)), h('td.mono', s.mssv || s.username), h('td', s.name), h('td.muted.small', s.createdAt ? fmtDateTime(s.createdAt) : '—'))))));
   }
 
   const el = h('div.container.wide',
     h('div.home-head', h('div', h('a.small', { href: '#/teacher' }, '← ' + t('nav.classes')), h('h1', cls.name), h('p.muted', [cls.id, cls.term, t('teacher.students', { n: cls.students.length })].filter(Boolean).join(' · ')))),
     localNote(), bar, host);
   render();
-  return { el, dispose: () => cleanup?.() };
+  return {
+    el,
+    dispose(o) {
+      if (o?.relang) {
+        const fault = detachFault?.() || null; // phiên xem trước đi theo carry, không dừng
+        cleanup?.();
+        return { cls: { id, tab, fault }, release: () => fault?.sess?.dispose() };
+      }
+      cleanup?.();
+    },
+  };
 }

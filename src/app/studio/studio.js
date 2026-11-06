@@ -19,15 +19,17 @@ import { createDeviceView } from './deviceView.js';
 
 const MAX_UNDO = 120;
 
-export function createStudio({ project, readOnly = false, getPlc = () => null, onChange = () => {}, machineIo = null }) {
+/** initialState: kết quả getState() của Studio trước (vẽ lại khi đổi ngôn ngữ — giữ tab, undo/redo, chọn, giám sát, ô Thông tin). */
+export function createStudio({ project, readOnly = false, getPlc = () => null, onChange = () => {}, machineIo = null, initialState = null }) {
+  const ist = initialState;
   let proj = project;
-  let monitor = false;
-  const undoStack = [], redoStack = [];
-  const state = { sel: null };
-  let docs = [{ kind: 'block', name: (proj.blocks.find((b) => b.type === 'OB') || proj.blocks[0])?.name }];
-  let activeIdx = 0;
+  let monitor = !!ist?.monitor;
+  const undoStack = ist ? [...ist.undo] : [], redoStack = ist ? [...ist.redo] : [];
+  const state = { sel: ist?.sel ?? null };
+  let docs = ist?.docs?.length ? ist.docs.map((d) => ({ ...d })) : [{ kind: 'block', name: (proj.blocks.find((b) => b.type === 'OB') || proj.blocks[0])?.name }];
+  let activeIdx = ist ? Math.min(ist.activeIdx || 0, docs.length - 1) : 0;
   let editor = null;
-  let lastErrors = [];
+  let lastErrors = ist?.errors || [];
 
   const clipboard = {
     get() { return storage.get('bk.clipboard'); },
@@ -91,7 +93,7 @@ export function createStudio({ project, readOnly = false, getPlc = () => null, o
   /* ---------------- bố cục ---------------- */
   const tree = createProjectTree(ctx);
   const palette = createPalette(ctx);
-  const info = createInfoPane(ctx);
+  const info = createInfoPane(ctx, ist?.info);
   const docTabs = h('div.doc-tabs', { role: 'tablist', 'aria-label': t('studio.openDocs') });
   const editorHost = h('div.editor-host');
   const center = h('div.studio-center', docTabs, editorHost);
@@ -178,6 +180,7 @@ export function createStudio({ project, readOnly = false, getPlc = () => null, o
     onChange(proj);
   }
 
+  if (ist) fixDocs();
   renderDocTabs(); renderEditor(); updateDatalist();
 
   return {
@@ -191,6 +194,8 @@ export function createStudio({ project, readOnly = false, getPlc = () => null, o
     diag(text, kind) { info.addDiag(text, kind); },
     showDiag() { info.showDiag(); },
     flush() { editor?.flush?.(); },
+    /** Trạng thái giao diện để tạo lại Studio (đổi ngôn ngữ) mà không mất tab, undo/redo, kết quả biên dịch. */
+    getState() { editor?.flush?.(); return { docs: docs.map((d) => ({ ...d })), activeIdx, undo: [...undoStack], redo: [...redoStack], sel: state.sel, monitor, errors: lastErrors, info: info.getState() }; },
     dispose() { editor?.dispose?.(); },
   };
 }

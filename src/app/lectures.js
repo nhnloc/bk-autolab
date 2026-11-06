@@ -2,11 +2,12 @@
 // Dạng: LECTURES[labId] = { outcomes:[{code,text}], durationMin, sections:[{title, body}], quiz?:[{q, options, answer, explain}] }
 import { storage } from './store.js';
 
-import { COURSE_TITLE } from './course.js';
+import { courseTitle } from './course.js';
+import { trLecture, trCourseInfo } from './loc.js';
 
 let modP = null;
 const loadMod = () => (modP ||= import('../labs/lectures.js')
-  .catch((e) => { console.info('[lectures] chưa có src/labs/lectures.js →', e?.message || e); return {}; }));
+  .catch((e) => { console.info('[lectures] src/labs/lectures.js not available →', e?.message || e); return {}; }));
 
 /** LECTURES (hoặc {} nếu chưa có file / sai dạng). */
 export async function loadLectures() {
@@ -15,16 +16,19 @@ export async function loadLectures() {
   return L && typeof L === 'object' ? L : {};
 }
 
-/** Tên học phần: COURSE_INFO của nhóm nội dung, dự phòng COURSE_TITLE (src/app/course.js). */
+/** Tên học phần: COURSE_INFO của nhóm nội dung (đã dịch theo ngôn ngữ), dự phòng course.title (i18n). */
 export async function loadCourseInfo() {
   const m = await loadMod();
-  const ci = m?.COURSE_INFO || {};
-  return { title: String(ci.title || COURSE_TITLE), subtitle: ci.subtitle ? String(ci.subtitle) : '' };
+  const tr = trCourseInfo();
+  const ci = (tr && typeof tr === 'object' ? tr : null) || m?.COURSE_INFO || {};
+  return { title: String(ci.title || courseTitle()), subtitle: ci.subtitle ? String(ci.subtitle) : '' };
 }
 
 /** Bài giảng của 1 lab (thử id khóa học rồi id của engine). Trả null nếu không có hoặc sai dạng. */
 export function lectureFor(LECTURES, lab) {
-  const lec = LECTURES?.[lab?.id] || (lab?.engineId ? LECTURES?.[lab.engineId] : null);
+  const orig = LECTURES?.[lab?.id] ? lab.id : lab?.engineId && LECTURES?.[lab.engineId] ? lab.engineId : null;
+  // Bản dịch theo ngôn ngữ hiện tại (src/i18n/loc.js), dự phòng bản gốc.
+  const lec = (orig && trLecture(orig)) || (orig ? LECTURES[orig] : null);
   if (!lec || typeof lec !== 'object') return null;
   const arr = (v) => (Array.isArray(v) ? v : []);
   return {

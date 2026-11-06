@@ -5,9 +5,8 @@ import { t } from '../i18n.js';
 import { machineIo } from '../engine.js';
 import { ioValue } from './ioState.js';
 
-export function createIoPanel({ m, getPlc, allowOverride = false, onForce }) {
+export function createIoPanel({ m, getPlc, allowOverride = false, onForce, forced = new Map() }) {
   const { inputs, outputs } = machineIo(m.def);
-  const forced = new Map();
   const cells = [];
   const row = (io) => {
     const led = h('span.led', { class: io.dir === 'Q' ? 'out' : 'in' });

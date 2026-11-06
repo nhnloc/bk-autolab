@@ -1,4 +1,5 @@
 // Đặc tả lệnh LAD phía UI: chân của box (khớp BOX_SPECS của src/plc/lad.js) + danh mục palette.
+import { t } from '../i18n.js';
 
 /** pin: chân nhận công suất (không lưu trong params); ins/outs: chân có toán hạng; out: chân xuất công suất. */
 export const BOX_PINS = {
@@ -90,55 +91,55 @@ export function makeNode(key, project) {
 
 /** Danh mục lệnh (palette) giống thư viện lệnh "Basic instructions". */
 export const PALETTE = [
-  { id: 'bit', title: 'Logic bit', items: [
-    { key: 'NO', label: '-| |-', name: 'Tiếp điểm thường mở', icon: 'NO', kbd: 'Shift+F2', scl: '' },
-    { key: 'NC', label: '-|/|-', name: 'Tiếp điểm thường đóng', icon: 'NC', kbd: 'Shift+F3' },
-    { key: 'NOT', label: '-|NOT|-', name: 'Đảo kết quả logic', icon: 'NOT' },
-    { key: 'P', label: '-|P|-', name: 'Sườn lên của toán hạng', icon: 'P' },
-    { key: 'N', label: '-|N|-', name: 'Sườn xuống của toán hạng', icon: 'N' },
-    { key: 'coil=', label: '-( )-', name: 'Cuộn dây (gán)', icon: '=', kbd: 'Shift+F7' },
-    { key: 'coil/', label: '-(/)-', name: 'Cuộn dây đảo', icon: '/' },
-    { key: 'coilS', label: '-(S)-', name: 'Set', icon: 'S' },
-    { key: 'coilR', label: '-(R)-', name: 'Reset', icon: 'R' },
-    { key: 'coilP', label: '-(P)-', name: 'Xung khi sườn lên', icon: 'coilP' },
-    { key: 'coilN', label: '-(N)-', name: 'Xung khi sườn xuống', icon: 'coilN' },
-    { key: 'SR', label: 'SR', name: 'Flip-flop Set/Reset (Reset ưu tiên)' },
-    { key: 'RS', label: 'RS', name: 'Flip-flop Reset/Set (Set ưu tiên)' },
-    { key: 'R_TRIG', label: 'R_TRIG', name: 'Phát hiện sườn lên', scl: '#R_TRIG_1(CLK := );\n' },
-    { key: 'F_TRIG', label: 'F_TRIG', name: 'Phát hiện sườn xuống', scl: '#F_TRIG_1(CLK := );\n' },
+  { id: 'bit', get title() { return t('palg.bit'); }, items: [
+    { key: 'NO', label: '-| |-', get name() { return t('ins.NO'); }, icon: 'NO', kbd: 'Shift+F2', scl: '' },
+    { key: 'NC', label: '-|/|-', get name() { return t('ins.NC'); }, icon: 'NC', kbd: 'Shift+F3' },
+    { key: 'NOT', label: '-|NOT|-', get name() { return t('ins.NOT'); }, icon: 'NOT' },
+    { key: 'P', label: '-|P|-', get name() { return t('ins.P'); }, icon: 'P' },
+    { key: 'N', label: '-|N|-', get name() { return t('ins.N'); }, icon: 'N' },
+    { key: 'coil=', label: '-( )-', get name() { return t('ins.coil='); }, icon: '=', kbd: 'Shift+F7' },
+    { key: 'coil/', label: '-(/)-', get name() { return t('ins.coil/'); }, icon: '/' },
+    { key: 'coilS', label: '-(S)-', get name() { return t('ins.coilS'); }, icon: 'S' },
+    { key: 'coilR', label: '-(R)-', get name() { return t('ins.coilR'); }, icon: 'R' },
+    { key: 'coilP', label: '-(P)-', get name() { return t('ins.coilP'); }, icon: 'coilP' },
+    { key: 'coilN', label: '-(N)-', get name() { return t('ins.coilN'); }, icon: 'coilN' },
+    { key: 'SR', label: 'SR', get name() { return t('ins.SR'); } },
+    { key: 'RS', label: 'RS', get name() { return t('ins.RS'); } },
+    { key: 'R_TRIG', label: 'R_TRIG', get name() { return t('ins.R_TRIG'); }, scl: '#R_TRIG_1(CLK := );\n' },
+    { key: 'F_TRIG', label: 'F_TRIG', get name() { return t('ins.F_TRIG'); }, scl: '#F_TRIG_1(CLK := );\n' },
   ] },
-  { id: 'timer', title: 'Bộ định thời', items: [
-    { key: 'TP', label: 'TP', name: 'Tạo xung', scl: '"IEC_Timer_0_DB".TP(IN := , PT := T#1s);\n' },
-    { key: 'TON', label: 'TON', name: 'Trễ đóng', scl: '"IEC_Timer_0_DB".TON(IN := , PT := T#2s);\n' },
-    { key: 'TOF', label: 'TOF', name: 'Trễ ngắt', scl: '"IEC_Timer_0_DB".TOF(IN := , PT := T#2s);\n' },
-    { key: 'TONR', label: 'TONR', name: 'Trễ đóng có nhớ', scl: '"IEC_Timer_0_DB".TONR(IN := , R := , PT := T#2s);\n' },
+  { id: 'timer', get title() { return t('palg.timer'); }, items: [
+    { key: 'TP', label: 'TP', get name() { return t('ins.TP'); }, scl: '"IEC_Timer_0_DB".TP(IN := , PT := T#1s);\n' },
+    { key: 'TON', label: 'TON', get name() { return t('ins.TON'); }, scl: '"IEC_Timer_0_DB".TON(IN := , PT := T#2s);\n' },
+    { key: 'TOF', label: 'TOF', get name() { return t('ins.TOF'); }, scl: '"IEC_Timer_0_DB".TOF(IN := , PT := T#2s);\n' },
+    { key: 'TONR', label: 'TONR', get name() { return t('ins.TONR'); }, scl: '"IEC_Timer_0_DB".TONR(IN := , R := , PT := T#2s);\n' },
   ] },
-  { id: 'counter', title: 'Bộ đếm', items: [
-    { key: 'CTU', label: 'CTU', name: 'Đếm lên', scl: '"IEC_Counter_0_DB".CTU(CU := , R := , PV := 10);\n' },
-    { key: 'CTD', label: 'CTD', name: 'Đếm xuống', scl: '"IEC_Counter_0_DB".CTD(CD := , LD := , PV := 10);\n' },
-    { key: 'CTUD', label: 'CTUD', name: 'Đếm lên/xuống' },
+  { id: 'counter', get title() { return t('palg.counter'); }, items: [
+    { key: 'CTU', label: 'CTU', get name() { return t('ins.CTU'); }, scl: '"IEC_Counter_0_DB".CTU(CU := , R := , PV := 10);\n' },
+    { key: 'CTD', label: 'CTD', get name() { return t('ins.CTD'); }, scl: '"IEC_Counter_0_DB".CTD(CD := , LD := , PV := 10);\n' },
+    { key: 'CTUD', label: 'CTUD', get name() { return t('ins.CTUD'); } },
   ] },
-  { id: 'cmp', title: 'So sánh', items: ['==', '<>', '>=', '<=', '>', '<'].map((o) => ({ key: 'cmp' + o, label: 'CMP ' + o, name: 'So sánh ' + o, icon: 'cmp', scl: `IF a ${o === '==' ? '=' : o} b THEN\n  ;\nEND_IF;\n` })) },
-  { id: 'move', title: 'Di chuyển & dịch', items: [
-    { key: 'MOVE', label: 'MOVE', name: 'Chép giá trị', scl: 'dst := src;\n' },
-    { key: 'SHL', label: 'SHL', name: 'Dịch trái', scl: 'x := SHL(IN := x, N := 1);\n' },
-    { key: 'SHR', label: 'SHR', name: 'Dịch phải', scl: 'x := SHR(IN := x, N := 1);\n' },
+  { id: 'cmp', get title() { return t('palg.cmp'); }, items: ['==', '<>', '>=', '<=', '>', '<'].map((o) => ({ key: 'cmp' + o, label: 'CMP ' + o, get name() { return t('ins.cmp', { op: o }); }, icon: 'cmp', scl: `IF a ${o === '==' ? '=' : o} b THEN\n  ;\nEND_IF;\n` })) },
+  { id: 'move', get title() { return t('palg.move'); }, items: [
+    { key: 'MOVE', label: 'MOVE', get name() { return t('ins.MOVE'); }, scl: 'dst := src;\n' },
+    { key: 'SHL', label: 'SHL', get name() { return t('ins.SHL'); }, scl: 'x := SHL(IN := x, N := 1);\n' },
+    { key: 'SHR', label: 'SHR', get name() { return t('ins.SHR'); }, scl: 'x := SHR(IN := x, N := 1);\n' },
   ] },
-  { id: 'math', title: 'Toán học', items: [
-    { key: 'ADD', label: 'ADD', name: 'Cộng', scl: 'out := in1 + in2;\n' },
-    { key: 'SUB', label: 'SUB', name: 'Trừ', scl: 'out := in1 - in2;\n' },
-    { key: 'MUL', label: 'MUL', name: 'Nhân', scl: 'out := in1 * in2;\n' },
-    { key: 'DIV', label: 'DIV', name: 'Chia', scl: 'out := in1 / in2;\n' },
-    { key: 'MOD', label: 'MOD', name: 'Chia lấy dư', scl: 'out := in1 MOD in2;\n' },
-    { key: 'INC', label: 'INC', name: 'Tăng 1' },
-    { key: 'DEC', label: 'DEC', name: 'Giảm 1' },
-    { key: 'LIMIT', label: 'LIMIT', name: 'Giới hạn' },
+  { id: 'math', get title() { return t('palg.math'); }, items: [
+    { key: 'ADD', label: 'ADD', get name() { return t('ins.ADD'); }, scl: 'out := in1 + in2;\n' },
+    { key: 'SUB', label: 'SUB', get name() { return t('ins.SUB'); }, scl: 'out := in1 - in2;\n' },
+    { key: 'MUL', label: 'MUL', get name() { return t('ins.MUL'); }, scl: 'out := in1 * in2;\n' },
+    { key: 'DIV', label: 'DIV', get name() { return t('ins.DIV'); }, scl: 'out := in1 / in2;\n' },
+    { key: 'MOD', label: 'MOD', get name() { return t('ins.MOD'); }, scl: 'out := in1 MOD in2;\n' },
+    { key: 'INC', label: 'INC', get name() { return t('ins.INC'); } },
+    { key: 'DEC', label: 'DEC', get name() { return t('ins.DEC'); } },
+    { key: 'LIMIT', label: 'LIMIT', get name() { return t('ins.LIMIT'); } },
   ] },
-  { id: 'conv', title: 'Chuyển đổi', items: [
-    { key: 'NORM_X', label: 'NORM_X', name: 'Chuẩn hóa', scl: 'r := NORM_X(MIN := 0, VALUE := x, MAX := 27648);\n' },
-    { key: 'SCALE_X', label: 'SCALE_X', name: 'Co giãn', scl: 'y := SCALE_X(MIN := 0.0, VALUE := r, MAX := 100.0);\n' },
+  { id: 'conv', get title() { return t('palg.conv'); }, items: [
+    { key: 'NORM_X', label: 'NORM_X', get name() { return t('ins.NORM_X'); }, scl: 'r := NORM_X(MIN := 0, VALUE := x, MAX := 27648);\n' },
+    { key: 'SCALE_X', label: 'SCALE_X', get name() { return t('ins.SCALE_X'); }, scl: 'y := SCALE_X(MIN := 0.0, VALUE := r, MAX := 100.0);\n' },
   ] },
-  { id: 'prog', title: 'Điều khiển chương trình', items: [] }, // điền động: gọi FC/FB của project
+  { id: 'prog', get title() { return t('palg.prog'); }, items: [] }, // điền động: gọi FC/FB của project
 ];
 
 export const DATA_TYPES = ['Bool', 'Byte', 'Word', 'DWord', 'Int', 'UInt', 'DInt', 'Real', 'Time', 'Char', 'String', 'IEC_TIMER', 'IEC_COUNTER', 'TON', 'TOF', 'CTU', 'R_TRIG'];

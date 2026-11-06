@@ -1,6 +1,7 @@
 // Trang Lab (không gian làm việc chính): hướng dẫn | [PLC Studio ⇆ Máy 3D] / HMI / Kết quả chấm.
 import { h, debounce } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, fmtTime } from '../i18n.js';
+import { trText } from '../loc.js';
 import { api } from '../mockApi.js';
 import { loadEngine } from '../engine.js';
 import { icon } from '../components/icons.js';
@@ -14,29 +15,36 @@ import { createGuidePanel } from '../machine/guidePanel.js';
 import { loadLectures, lectureFor, hasSeenLab, markSeenLab } from '../lectures.js';
 import { createResultsPanel } from '../machine/resultsPanel.js';
 
-export async function labPage({ id }, { user }) {
+/** Lỗi lúc chạy/biên dịch (engine) → 1 dòng, dịch theo ngôn ngữ hiện tại. */
+const errText = (e) => `${e.block || ''}${e.network !== undefined ? ` ${t('info.network')} ${+e.network + 1}` : ''}${e.line ? ` ${t('info.line')} ${e.line}` : ''}: ${trText(e.message)}`;
+
+export async function labPage({ id }, { user, carry }) {
   const [eng, lab, labsMeta, LECTURES] = await Promise.all([loadEngine(), getLab(id), api.listLabs(user.classId), loadLectures()]);
   if (!lab || !lab.machineId) throw new Error(t('lab.notFound', { id }));
   const meta = labsMeta.find((l) => l.id === id);
   if (meta && !meta.open) throw new Error(t('lab.locked'));
 
-  const faults = await api.getFaults(id);
-  const sess = createSession(eng, lab.machineId, { faults });
+  // Đổi ngôn ngữ: dùng lại phiên PLC/máy đang chạy và trạng thái giao diện của trang trước (cùng lab, cùng SV).
+  const keep = carry?.lab && carry.lab.id === id && carry.lab.userId === user.id ? carry.lab : null;
+  if (keep) carry.taken = true;
+  const sess = keep ? keep.sess : createSession(eng, lab.machineId, { faults: await api.getFaults(id) });
   const { m, plc } = sess;
   const def = m.def;
-  const saved = await api.getProject(id);
-  const project = saved || starterFor(eng, lab, def);
+  const saved = keep ? null : await api.getProject(id);
+  const project = keep ? keep.project : saved || starterFor(eng, lab, def);
   const disposers = [];
+  const ioForced = keep?.ioForced || new Map();
+  let keepSession = false; // true khi trang được vẽ lại do đổi ngôn ngữ → không dừng PLC
 
   /* ---------- Studio ---------- */
   const saveState = h('span.save-state.muted.small');
-  const autosave = debounce((p) => { api.saveProject(id, p).then(() => { saveState.textContent = t('lab.saved', { time: new Date().toLocaleTimeString('vi-VN') }); }).catch((e) => console.warn('[lab] không lưu được:', e?.message || e)); }, 800);
-  const studio = createStudio({ project, getPlc: () => plc, onChange: (p) => { saveState.textContent = t('lab.saving'); autosave(p); } });
+  const autosave = debounce((p) => { api.saveProject(id, p).then(() => { saveState.textContent = t('lab.saved', { time: fmtTime() }); }).catch((e) => console.warn('[lab] cannot save:', e?.message || e)); }, 800);
+  const studio = createStudio({ project, getPlc: () => plc, initialState: keep?.studio, onChange: (p) => { saveState.textContent = t('lab.saving'); autosave(p); } });
   disposers.push(() => { autosave.flush(studio.project); studio.dispose(); });
-  if (!saved) api.saveProject(id, project);
+  if (!saved && !keep) api.saveProject(id, project);
 
   /* ---------- Máy ---------- */
-  const mv = createMachineView({ m, getPlc: () => plc, allowOverride: lab.allowOverride !== false, splitKey: 'lab-machine-v' });
+  const mv = createMachineView({ m, getPlc: () => plc, allowOverride: lab.allowOverride !== false, splitKey: 'lab-machine-v', ioForced });
   disposers.push(() => mv.dispose());
 
   /* ---------- Thanh công cụ ---------- */
@@ -61,7 +69,7 @@ export async function labPage({ id }, { user }) {
     h('button.btn.primary', { type: 'button', onclick: () => submit() }, icon('send', { size: 15 }), t('lab.submit')));
 
   /* ---------- PLC ---------- */
-  let monitor = false;
+  let monitor = !!keep?.monitor;
   function setMonitor(on) { monitor = on; btnMon.setAttribute('aria-pressed', String(on)); btnMon.classList.toggle('on', on); studio.setMonitor(on); }
   function updateState() {
     const s = plc.state;
@@ -82,7 +90,7 @@ export async function labPage({ id }, { user }) {
     let res;
     try { res = sess.load(studio.project); } catch (e) { res = { ok: false, errors: [{ block: '—', message: String(e.message || e) }] }; }
     studio.showCompile(res);
-    if (res.ok) { studio.diag(t('lab.diagLoaded')); toast(wasRun ? t('lab.loadedStopped') : t('lab.loaded'), 'ok', 2200); }
+    if (res.ok) { studio.diag(() => t('lab.diagLoaded')); toast(wasRun ? t('lab.loadedStopped') : t('lab.loaded'), 'ok', 2200); }
     else toast(t('lab.compileErrN', { n: res.errors.length }), 'err');
     updateState();
     return res.ok;
@@ -90,10 +98,10 @@ export async function labPage({ id }, { user }) {
   function run() {
     studio.flush();
     if (!sess.isLoaded(studio.project)) { if (!download()) return; }
-    try { plc.start(); } catch (e) { toast(String(e.message || e), 'err'); }
-    studio.diag(t('lab.diagRun')); updateState();
+    try { plc.start(); } catch (e) { toast(trText(String(e.message || e)), 'err'); }
+    studio.diag(() => t('lab.diagRun')); updateState();
   }
-  function stop() { plc.stop(); studio.diag(t('lab.diagStop')); updateState(); }
+  function stop() { plc.stop(); studio.diag(() => t('lab.diagStop')); updateState(); }
 
   const offs = [];
   const on = (ev, cb) => { const r = plc.on?.(ev, cb); if (typeof r === 'function') offs.push(r); else offs.push(() => plc.off?.(ev, cb)); };
@@ -103,8 +111,7 @@ export async function labPage({ id }, { user }) {
     scan.textContent = `${(+e.scanTimeMs || 0).toFixed(2)} ms · #${e.cycle}`;
   });
   on('error', (e) => {
-    const msg = `${e.block || ''}${e.network !== undefined ? ' NW' + (+e.network + 1) : ''}${e.line ? ' dòng ' + e.line : ''}: ${e.message}`;
-    studio.diag(t('lab.diagError') + ' ' + msg, 'err'); studio.showDiag(); toast(t('lab.runtimeErr') + ' ' + e.message, 'err', 5000); updateState();
+    studio.diag(() => t('lab.diagError') + ' ' + errText(e), 'err'); studio.showDiag(); toast(t('lab.runtimeErr') + ' ' + trText(e.message), 'err', 5000); updateState();
   });
   on('state', () => updateState());
   updateState();
@@ -113,6 +120,7 @@ export async function labPage({ id }, { user }) {
 
   /* ---------- Bố cục ---------- */
   const views = storage.get('bk.lab.view', 'both');
+  if (keep?.monitor) setMonitor(true);
   const work = split({ dir: 'h', a: studio.el, b: mv.el, ratio: 0.58, min: 300, key: 'lab-main' });
   const seg = h('div.seg.sm', { role: 'group', 'aria-label': t('lab.layout') },
     ...[['studio', t('lab.onlyStudio'), 'panel'], ['both', t('lab.both'), 'split'], ['machine', t('lab.onlyMachine'), 'cube']].map(([id, l, ic]) =>
@@ -139,18 +147,19 @@ export async function labPage({ id }, { user }) {
     tabs.setActive(tid);
     workHost.hidden = tid !== 'work'; hmiHost.hidden = tid !== 'hmi'; resHost.hidden = tid !== 'res';
     seg.hidden = tid !== 'work';
-    if (tid === 'hmi' && !hmi) { hmi = createHmi({ m, getPlc: () => plc, title: lab.title }); hmiHost.append(hmi.el); }
+    if (tid === 'hmi' && !hmi) { hmi = createHmi({ m, getPlc: () => plc, title: lab.title, keep: hmiKeep }); hmiKeep = null; hmiHost.append(hmi.el); }
   }
-  disposers.push(() => hmi?.dispose());
+  let hmiKeep = keep?.hmi || null; // HMI cũ (đầu ra đang ép, cảnh báo đã xác nhận, màn hình)
+  disposers.push(() => { const st = hmi?.dispose({ keepForces: keepSession }); if (keepSession) hmiKeep = st || hmiKeep; });
 
   // Lần đầu mở lab (có bài giảng) → tab Bài giảng, mở sẵn ô hướng dẫn; các lần sau → tab Nhiệm vụ.
   const lecture = lectureFor(LECTURES, lab);
-  const firstVisit = !!lecture && !hasSeenLab(user.id, lab.id);
+  const firstVisit = !keep && !!lecture && !hasSeenLab(user.id, lab.id);
   markSeenLab(user.id, lab.id);
   let body = null;
-  const guideOpen = firstVisit || storage.get('bk.lab.guide', window.innerWidth >= 1600);
+  const guideOpen = keep ? keep.guideOpen : firstVisit || storage.get('bk.lab.guide', window.innerWidth >= 1600);
   const guide = createGuidePanel({
-    lab, def, lecture, userId: user.id, initialTab: firstVisit ? 'lecture' : 'task',
+    lab, def, lecture, userId: user.id, initialTab: keep ? keep.guideTab : firstVisit ? 'lecture' : 'task',
     onCollapse: () => toggleGuide(false),
     onTab: (tab) => { body?.classList.toggle('lecture-tab', tab === 'lecture'); if (tab !== 'lecture') setReading(false); },
     onWide: (on) => setReading(on ?? !body.classList.contains('reading')),
@@ -166,10 +175,15 @@ export async function labPage({ id }, { user }) {
     guide.el.querySelector('.wide-btn')?.setAttribute('aria-pressed', String(!!on));
   }
   toggleGuide(guideOpen);
+  if (keep?.reading && guide.tab === 'lecture') setReading(true);
 
   /* ---------- Chấm / nộp ---------- */
-  const prev = await api.getSubmission(id);
-  if (prev) results.show(prev, h('p.muted.small', t('res.prevSubmission')));
+  if (keep?.results) results.show(keep.results.res, keep.results.note);
+  else {
+    const prev = await api.getSubmission(id);
+    if (prev) results.show(prev, { key: 'res.prevSubmission' });
+  }
+  if (keep?.tab && keep.tab !== 'work') showTab(keep.tab);
   let grading = false;
   async function grade(doSubmit) {
     if (grading) return null;
@@ -177,15 +191,15 @@ export async function labPage({ id }, { user }) {
     showTab('res'); results.setBusy(true, 0);
     try {
       const res = await eng.grade(lab, studio.project, (f) => results.setBusy(true, f));
-      if (!res) { results.show(null, h('p.muted', t('res.noGrader'))); return null; }
+      if (!res) { results.show(null, { key: 'res.noGrader' }); return null; }
       if (doSubmit) {
         const sub = await api.submit(id, studio.project, res);
-        results.show(sub, h('p.ok-text.small', t('res.submitted')));
+        results.show(sub, { key: 'res.submitted', cls: 'ok-text' });
         toast(t('res.submittedToast', { s: res.score, m: res.max }), 'ok', 4000);
-      } else results.show(res, h('p.muted.small', t('res.tryNote')));
+      } else results.show(res, { key: 'res.tryNote' });
       return res;
     } catch (e) {
-      console.error(e); toast(t('res.gradeErr') + ' ' + (e.message || e), 'err'); return null;
+      console.error(e); toast(t('res.gradeErr') + ' ' + trText(String(e.message || e)), 'err'); return null;
     } finally { grading = false; results.setBusy(false); }
   }
   async function submit() {
@@ -206,11 +220,22 @@ export async function labPage({ id }, { user }) {
 
   return {
     el,
-    dispose() {
+    /** relang: vẽ lại do đổi ngôn ngữ → giữ phiên PLC/máy (vẫn chạy) và trạng thái giao diện, trả về carry. */
+    dispose(o) {
+      keepSession = !!o?.relang;
+      const ui = keepSession ? {
+        id, userId: user.id, sess, ioForced,
+        studio: studio.getState(), project: studio.project, monitor,
+        tab: !hmiHost.hidden ? 'hmi' : !resHost.hidden ? 'res' : 'work',
+        guideTab: guide.tab, guideOpen: !body.classList.contains('guide-closed'), reading: body.classList.contains('reading'),
+        results: results.state,
+      } : null;
       offs.forEach((f) => { try { f(); } catch { /* bỏ qua */ } });
       disposers.forEach((f) => { try { f(); } catch (e) { console.warn(e); } });
-      sess.dispose();
       if (window.__bk?.plc === plc) delete window.__bk;
+      if (keepSession) { ui.hmi = hmiKeep; return { lab: ui, release: () => { for (const a of ioForced.keys()) { try { plc.unforce(a); } catch { /* bỏ qua */ } } sess.dispose(); } }; }
+      sess.dispose();
+      return undefined;
     },
   };
 }

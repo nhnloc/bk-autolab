@@ -16,12 +16,16 @@ function downloadJson(filename, text) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
-export async function classListPage() {
+export async function classListPage(_, { carry } = {}) {
   let fileList = [], fileErr = '';
   try { fileList = await loadClasses({ force: true }); } catch (e) { fileErr = e.message; }
   const counts = Object.fromEntries((await api.listClasses()).map((c) => [c.id, c.studentCount]));
   const draft = storage.get(DRAFT);
   let rows = (Array.isArray(draft) ? draft : fileList).map((c) => ({ ...c, _orig: fileList.some((f) => f.id === c.id) ? c.id : null }));
+  // Đổi ngôn ngữ: giữ nguyên các dòng đang soạn (kể cả dòng chưa hợp lệ) và ghi chú bản nháp như trước.
+  const keep = carry?.classList || null;
+  if (keep) { carry.taken = true; rows = keep.rows; }
+  const showDraftNote = keep ? keep.showDraftNote : Array.isArray(draft);
 
   const tbody = h('tbody');
   const preview = h('pre.json-preview.mono');
@@ -107,7 +111,7 @@ export async function classListPage() {
   const el = h('div.container',
     h('div.home-head', h('div', h('h1', t('nav.classList')), h('p.muted', t('cl.sub')))),
     fileErr ? h('div.note-box.err', icon('warn', { size: 16 }), h('div', fileErr, ' ', t('cl.fileErrHint'))) : null,
-    Array.isArray(draft) ? h('div.note-box', icon('info', { size: 16 }), h('div', t('cl.draftLoaded'))) : null,
+    showDraftNote ? h('div.note-box', icon('info', { size: 16 }), h('div', t('cl.draftLoaded'))) : null,
     h('div.cl-grid',
       h('div.card',
         h('div.card-h', h('b', t('cl.edit')), h('span.spacer'),
@@ -125,8 +129,8 @@ export async function classListPage() {
           h('ol.cl-steps.small',
             h('li', t('cl.s1')),
             h('li', t('cl.s2pre'), ' ', h('code', 'data/classes.json'), ' ', t('cl.s2post')),
-            h('li', t('cl.s3'), ' ', h('code', 'git add data/classes.json && git commit -m "Cập nhật danh sách lớp" && git push')),
+            h('li', t('cl.s3'), ' ', h('code', `git add data/classes.json && git commit -m "${t('cl.commitMsg')}" && git push`)),
             h('li', t('cl.s4')))))));
   renderRows();
-  return { el };
+  return { el, dispose: (o) => (o?.relang ? { classList: { rows, showDraftNote } } : undefined) };
 }

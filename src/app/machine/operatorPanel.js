@@ -3,19 +3,21 @@
 // Gọi m.press(id, down).
 import { h } from '../dom.js';
 import { t } from '../i18n.js';
+import { trMachine, trText } from '../loc.js';
 import { createDisplayRow } from './readouts.js';
 
-const DEFAULT_BUTTONS = [
+const DEFAULT_BUTTONS = () => [
   { id: 'Start', label: 'Start', kind: 'momentary', color: 'green' },
   { id: 'Stop', label: 'Stop', kind: 'momentary', color: 'red' },
   { id: 'Reset', label: 'Reset', kind: 'momentary', color: 'blue' },
-  { id: 'EStop', label: 'Dừng khẩn', kind: 'latching', color: 'estop' },
+  { id: 'EStop', label: t('op.estop'), kind: 'latching', color: 'estop' },
   { id: 'AutoMan', label: 'Auto / Man', kind: 'selector', color: 'black' },
 ];
 const MAIN_IDS = ['Start', 'Stop', 'Reset', 'EStop', 'AutoMan'];
 
 export function createOperatorPanel({ m, getVisual, readOnly = false }) {
-  const buttons = (m.def?.buttons?.length ? m.def.buttons : DEFAULT_BUTTONS);
+  const def = trMachine(m.def); // nhãn nút theo ngôn ngữ hiện tại (id giữ nguyên)
+  const buttons = (def?.buttons?.length ? def.buttons : DEFAULT_BUTTONS());
   const panel = () => m.panel || {};
   const els = [];
   const lampRun = h('span.lamp.green', { role: 'img', 'aria-label': 'H_Run' });
@@ -85,7 +87,7 @@ export function createOperatorPanel({ m, getVisual, readOnly = false }) {
     lampRun.classList.toggle('on', !!run); lampFault.classList.toggle('on', !!fault);
     displays.update(v?.displays);
     const c = v?.crashed || m.crashed;
-    crash.hidden = !c; if (c) crash.textContent = t('op.crashed') + ' ' + (c.message || '');
+    crash.hidden = !c; if (c) crash.textContent = t('op.crashed') + ' ' + (trText(c.message) || '');
   }
   refresh();
   return { el, refresh };

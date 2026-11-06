@@ -50,7 +50,11 @@ export class StarDelta extends Machine {
 
   physics(dt) {
     const k1 = this.act('KM1') && this.f1, k2 = this.act('KM2') && this.f1, k3 = this.act('KM3') && this.f1;
-    if (this.act('KM2') && this.act('KM3')) this.crash('KM2 (sao) và KM3 (tam giác) đóng cùng lúc — ngắn mạch 3 pha');
+    if (this.act('KM2') && this.act('KM3') && !this.crashed) {
+      this.effect('spark', 'out_KM2', 2200); this.effect('spark', 'out_KM3', 2200);
+      this.effect('smoke', 'out_KM3', 7000, 0.9); this.effect('breaker', null, 4000);
+      this.crash('KM2 (sao) và KM3 (tam giác) đóng cùng lúc — ngắn mạch 3 pha');
+    }
     if (this.prevK2 && !k2) this.k2OffAt = this.time;
     this.prevK2 = k2;
     const mode = this.crashed ? 'off' : k1 && k2 ? 'star' : k1 && k3 ? 'delta' : 'off';
@@ -61,7 +65,7 @@ export class StarDelta extends Machine {
         const gap = this.time - this.k2OffAt;
         if (this.prevMode === 'off' && this.n < 0.3) { this.startClean = false; this.stats.defects++; this.log('Đóng thẳng tam giác khi động cơ đứng yên = khởi động trực tiếp: dòng khởi động ~6,5 lần định mức', 'warn'); }
         else if (this.n < 0.8) { this.startClean = false; this.stats.defects++; this.log(`Chuyển sang tam giác quá sớm (tốc độ mới ${Math.round(this.n * 100)} %) — dòng tăng vọt`, 'warn'); }
-        if (gap < 30) { this.startClean = false; this.stats.defects++; this.log(`Thời gian chết giữa KM2 nhả và KM3 đóng chỉ ${Math.max(0, Math.round(gap))} ms — nguy cơ hồ quang ngắn mạch (nên ≥ 50 ms)`, 'warn'); }
+        if (gap < 30) { this.effect('spark', 'out_KM3', 900, 0.5); this.startClean = false; this.stats.defects++; this.log(`Thời gian chết giữa KM2 nhả và KM3 đóng chỉ ${Math.max(0, Math.round(gap))} ms — nguy cơ hồ quang ngắn mạch (nên ≥ 50 ms)`, 'warn'); }
       }
       this.prevMode = mode;
     }
@@ -81,14 +85,14 @@ export class StarDelta extends Machine {
     const over = this.I > IN * 1.15 ? (this.I / IN) ** 2 : 0;
     this.heat = Math.max(0, this.heat + (over ? over * dt : -dt * 2));
     if (mode === 'star') this.starT += dt; else this.starT = 0;
-    if ((this.heat > 60000 || this.starT > 15000) && this.f1) { this.f1 = false; this.stats.defects++; this.log(this.starT > 15000 ? 'Chạy sao quá 15 s — rơ-le nhiệt F1 tác động' : 'Quá dòng kéo dài — rơ-le nhiệt F1 tác động', 'error'); }
+    if ((this.heat > 60000 || this.starT > 15000) && this.f1) { this.effect('smoke', 'pulley', 4000, 0.5); this.f1 = false; this.stats.defects++; this.log(this.starT > 15000 ? 'Chạy sao quá 15 s — rơ-le nhiệt F1 tác động' : 'Quá dòng kéo dài — rơ-le nhiệt F1 tác động', 'error'); }
     if (!this.f1 && this.panel.Reset && this.heat < 20000) { this.f1 = true; this.heat = 0; this.log('Đã reset rơ-le nhiệt F1', 'info'); }
 
     // Khí nén
     const use = (this.panel.Demand ? 0.35 : 0.12) + (this.faults.leak ? 0.4 : 0);
     const make = mode === 'delta' && this.n > 0.9 ? 0.55 : 0;
     this.p = Math.max(0, this.p + (dt / 1000) * (make - use));
-    if (this.p > 10) { this.p = 9.6; this.log('Van an toàn xả khí ở 10 bar', 'warn'); }
+    if (this.p > 10) { this.p = 9.6; this.effect('steam', 'needle_P', 2500); this.log('Van an toàn xả khí ở 10 bar', 'warn'); }
     const wasPs = this.ps;
     if (this.p >= PS_OFF) this.ps = false; else if (this.p <= PS_ON) this.ps = true;
     if (wasPs && !this.ps && mode === 'delta') this.produced(this.startClean);
@@ -99,6 +103,11 @@ export class StarDelta extends Machine {
     this.inputs.P_Raw = Math.round(Math.min(10, this.p) / 10 * 27648);
     this.inputs.I_Raw = Math.round(Math.min(200, this.I) / 200 * 27648);
     this.trend.step(dt, { I: Math.min(200, this.I), n: this.n * 100, p: this.p });
+  }
+
+  fxState() {
+    const h = Math.max(this.heat / 60000, this.starT / 15000);
+    return h > 0.15 ? [{ id: 'heat', type: 'heat', at: 'pulley', intensity: Math.min(1, h), age: 0 }] : [];
   }
 
   visualParts() {

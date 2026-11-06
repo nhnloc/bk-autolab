@@ -9,6 +9,7 @@ import { PUBLIC_MODE } from './config.js';
 import { loadTeacherConfig, verifyTeacherPassword } from './teacherAuth.js';
 import { COURSE } from './course.js';
 import { clone } from './dom.js';
+import { t } from './i18n.js';
 import { loadClassesSafe } from './classes.js';
 
 const K = { db: 'bk.db.v3', session: 'bk.session', oldDb: 'bk.mock.db.v2', oldSession: 'bk.mock.session' };
@@ -18,7 +19,8 @@ export const MSSV_RE = /^\d{7,10}$/;
 export const normName = (s) => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
 export const normMssv = (s) => String(s ?? '').replace(/\s+/g, '').trim();
 const studentId = (mssv) => 'sv' + mssv;
-const TEACHER = { id: 'gv01', username: 'giangvien', name: 'Giảng viên', role: 'teacher' };
+// Tên hiển thị theo ngôn ngữ hiện tại (role.teacher).
+const TEACHER = { id: 'gv01', username: 'giangvien', get name() { return t('role.teacher'); }, role: 'teacher' };
 
 function emptyDb() { return { version: 3, users: [], projects: {}, submissions: {}, faults: {}, schedules: {} }; }
 
@@ -70,8 +72,8 @@ function me() {
   if (s.userId === TEACHER.id) return PUBLIC_MODE && !s.verified ? null : { ...TEACHER };
   return db().users.find((u) => u.id === s.userId && u.role === 'student') || null;
 }
-function need() { const u = me(); if (!u) throw new Error('Chưa đăng nhập'); return u; }
-function needTeacher() { const u = need(); if (u.role !== 'teacher') throw new Error('Không có quyền'); return u; }
+function need() { const u = me(); if (!u) throw new Error(t('api.needLogin')); return u; }
+function needTeacher() { const u = need(); if (u.role !== 'teacher') throw new Error(t('api.forbidden')); return u; }
 const students = (d) => d.users.filter((u) => u.role === 'student');
 const hasData = (d, uid) => Object.keys(d.projects).some((k) => k.startsWith(uid + '|')) || Object.keys(d.submissions).some((k) => k.startsWith(uid + '|'));
 
@@ -87,15 +89,15 @@ export const api = {
   /** Đăng ký sinh viên → đăng nhập luôn. Trả { user, restored } (restored: có bài làm cũ của MSSV này). */
   async register({ name, classId, mssv }) {
     const nm = normName(name), ms = normMssv(mssv), cid = String(classId || '').trim();
-    if (nm.length < 2) throw new Error('Nhập họ và tên.');
-    if (nm.length > 80) throw new Error('Họ và tên quá dài.');
-    if (!cid) throw new Error('Chọn lớp.');
-    if (!MSSV_RE.test(ms)) throw new Error('MSSV gồm 7–10 chữ số.');
+    if (nm.length < 2) throw new Error(t('reg.errName'));
+    if (nm.length > 80) throw new Error(t('api.nameLong'));
+    if (!cid) throw new Error(t('reg.errClass'));
+    if (!MSSV_RE.test(ms)) throw new Error(t('reg.errMssv'));
     const classes = await loadClassesSafe();
     const cls = classes.find((c) => c.id === cid);
-    if (!cls) throw new Error('Lớp không có trong danh sách. Hãy tải lại trang.');
+    if (!cls) throw new Error(t('api.classUnknown'));
     const d = db();
-    if (d.users.some((u) => u.mssv === ms)) throw new Error(`MSSV ${ms} đã đăng ký trên trình duyệt này — hãy chuyển sang “Đăng nhập”.`);
+    if (d.users.some((u) => u.mssv === ms)) throw new Error(t('api.mssvTaken', { mssv: ms }));
     const u = { id: studentId(ms), username: ms, mssv: ms, name: nm, role: 'student', classId: cls.id, className: cls.name, createdAt: Date.now() };
     d.users.push(u);
     save(d);
@@ -104,9 +106,9 @@ export const api = {
   },
   async loginStudent({ mssv }) {
     const ms = normMssv(mssv);
-    if (!MSSV_RE.test(ms)) throw new Error('MSSV gồm 7–10 chữ số.');
+    if (!MSSV_RE.test(ms)) throw new Error(t('reg.errMssv'));
     const u = students(db()).find((x) => x.mssv === ms);
-    if (!u) throw new Error(`MSSV ${ms} chưa đăng ký trên trình duyệt này — hãy chọn “Đăng ký”.`);
+    if (!u) throw new Error(t('api.mssvUnknown', { mssv: ms }));
     storage.set(K.session, { userId: u.id });
     return delay({ user: clone(u) });
   },
@@ -114,8 +116,8 @@ export const api = {
   async loginTeacher(password) {
     const cfg = await loadTeacherConfig();
     if (PUBLIC_MODE || cfg) {
-      if (!password) throw new Error('Nhập mật khẩu giảng viên');
-      if (!(await verifyTeacherPassword(password))) throw new Error('Mật khẩu không đúng');
+      if (!password) throw new Error(t('api.teacherPassNeed'));
+      if (!(await verifyTeacherPassword(password))) throw new Error(t('api.teacherPassBad'));
     }
     storage.set(K.session, { userId: TEACHER.id, verified: true });
     return delay({ user: { ...TEACHER } });
@@ -142,7 +144,7 @@ export const api = {
     const file = await loadClassesSafe();
     const st = students(d).filter((s) => s.classId === id);
     const c = file.find((x) => x.id === id) || (st.length ? { id, name: st[0].className || id, term: '' } : null);
-    if (!c) throw new Error('Không tìm thấy lớp');
+    if (!c) throw new Error(t('api.classNotFound'));
     st.sort((a, b) => a.mssv.localeCompare(b.mssv));
     return delay({ ...c, schedule: scheduleOf(d, id), students: clone(st) });
   },

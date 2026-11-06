@@ -4,10 +4,10 @@ import { t } from '../i18n.js';
 import { BOX_PINS, boxPins } from './ladSpec.js';
 import * as M from './ladModel.js';
 
-const KINDS = {
-  contact: [['NO', '-| |-  NO'], ['NC', '-|/|-  NC'], ['P', '-|P|-  sườn lên'], ['N', '-|N|-  sườn xuống'], ['NOT', '-|NOT|-']],
-  coil: [['=', '-( )-  gán'], ['/', '-(/)-  đảo'], ['S', '-(S)-  Set'], ['R', '-(R)-  Reset'], ['P', '-(P)-'], ['N', '-(N)-']],
-};
+const KINDS = () => ({
+  contact: [['NO', '-| |-  NO'], ['NC', '-|/|-  NC'], ['P', '-|P|-  ' + t('props.kRise')], ['N', '-|N|-  ' + t('props.kFall')], ['NOT', '-|NOT|-']],
+  coil: [['=', '-( )-  ' + t('props.kAssign')], ['/', '-(/)-  ' + t('props.kNeg')], ['S', '-(S)-  Set'], ['R', '-(R)-  Reset'], ['P', '-(P)-'], ['N', '-(N)-']],
+});
 
 export function renderLadProps(ctx, sel) {
   if (!sel || !sel.node) return h('div.props-empty.muted', t('props.none'));
@@ -25,7 +25,7 @@ export function renderLadProps(ctx, sel) {
   const rows = [];
   const title = { contact: t('props.contact'), coil: t('props.coil'), cmp: t('props.cmp'), box: t('props.box') }[node.t] || node.t;
   if (node.t === 'contact' || node.t === 'coil') {
-    rows.push(fld(t('props.kind'), sel2(KINDS[node.t], node.kind, (v) => upd((n) => { n.kind = v; if (v === 'NOT') delete n.op; else n.op = n.op ?? ''; }))));
+    rows.push(fld(t('props.kind'), sel2(KINDS()[node.t], node.kind, (v) => upd((n) => { n.kind = v; if (v === 'NOT') delete n.op; else n.op = n.op ?? ''; }))));
     if (node.kind !== 'NOT') rows.push(fld(t('props.operand'), opIn(node.op, (v) => upd((n) => { n.op = v; }))));
     if (node.t === 'contact' && (node.kind === 'P' || node.kind === 'N')) rows.push(fld(t('props.edgeMem'), opIn(node.mem, (v) => upd((n) => { if (v) n.mem = v; else delete n.mem; }))));
   } else if (node.t === 'cmp') {
@@ -43,5 +43,5 @@ export function renderLadProps(ctx, sel) {
       rows.push(fld(p, opIn(node.params?.[p], (v) => upd((n) => { n.params = n.params || {}; if (v) n.params[p] = v; else delete n.params[p]; }))));
     }
   }
-  return h('div.props', h('div.props-title', title, h('span.muted.small', ` · Network ${net + 1} · ${t('props.path')} ${path}`)), h('div.props-grid', rows));
+  return h('div.props', h('div.props-title', title, h('span.muted.small', ` · ${t('info.network')} ${net + 1} · ${t('props.path')} ${path}`)), h('div.props-grid', rows));
 }

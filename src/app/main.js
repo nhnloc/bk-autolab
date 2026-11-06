@@ -16,12 +16,22 @@ import { labPage } from './pages/lab.js';
 import { teacherPage } from './pages/teacher.js';
 import { classPage } from './pages/teacherClass.js';
 import { reviewPage } from './pages/review.js';
+import { locReady } from './loc.js';
 
 applyTheme();
 setLang(settings.lang);
 const root = $('#app');
 let current = null;
 let renderToken = 0;
+let relangPending = false;
+
+/** Đổi ngôn ngữ: vẽ lại trang hiện tại. Trang có PLC/máy đang chạy giữ nguyên phiên qua "carry" (xem show()). */
+function switchLang() {
+  settings.lang = getLang() === 'vi' ? 'en' : 'vi';
+  setLang(settings.lang);
+  relangPending = true;
+  router.resolve();
+}
 
 function topbar(user, active) {
   const nav = user?.role === 'teacher'
@@ -35,14 +45,14 @@ function topbar(user, active) {
     h('nav.topnav', nav.map(([href, label, key]) => h('a', { href, class: active === key ? 'active' : '' }, label))),
     h('span.spacer'),
     h('span.hide-narrow', engBadge),
-    h('button.btn.ghost.sm', { type: 'button', title: t('app.lang'), onclick: () => { settings.lang = getLang() === 'vi' ? 'en' : 'vi'; setLang(settings.lang); router.resolve(); } }, getLang() === 'vi' ? 'EN' : 'VI'),
+    h('button.btn.ghost.sm', { type: 'button', title: t('app.lang'), 'aria-label': t('app.lang'), onclick: switchLang }, getLang() === 'vi' ? 'EN' : 'VI'),
     h('button.btn.ghost.icon', { type: 'button', title: t('app.theme'), 'aria-label': t('app.theme'), onclick: () => { settings.theme = settings.theme === 'dark' ? 'light' : 'dark'; window.dispatchEvent(new Event('bk-theme')); render(); } }, icon(settings.theme === 'dark' ? 'sun' : 'moon')),
     user ? userChip(user) : null,
     user ? h('button.btn.ghost.sm.switch-acc', { type: 'button', title: t('app.logoutTip'), onclick: async () => { await disposeCurrent(); await api.logout(); router.go('/login'); } }, icon('logout', { size: 15 }), h('span.hide-mid', t('app.logout'))) : null);
   function render() { const nb = topbar(user, active); root.querySelector('.topbar')?.replaceWith(nb); }
 }
 function userChip(user) {
-  if (user.role === 'teacher') return h('div.user-chip', h('span.avatar', 'GV'), h('span.hide-narrow', h('div', user.name), h('span.role-badge', t('role.teacher'))));
+  if (user.role === 'teacher') return h('div.user-chip', h('span.avatar', t('teacher.avatar')), h('span.hide-narrow', h('div', user.name), h('span.role-badge', t('role.teacher'))));
   const clsName = h('span', user.className || user.classId || '');
   // Tên lớp mới nhất từ data/classes.json (giảng viên có thể đã đổi tên).
   loadClassesSafe().then((list) => { const c = list.find((x) => x.id === user.classId); if (c) { clsName.textContent = c.name; chip.title = `${user.name} · ${user.mssv} · ${c.name}`; } });
@@ -64,18 +74,28 @@ async function show(pageFn, params, { role, active, full } = {}) {
   const user = await api.getMe();
   if (role && !user) { router.go('/login', { replace: true }); return; }
   if (role && role !== 'any' && user.role !== role) { router.go(user.role === 'teacher' ? '/teacher' : '/home', { replace: true }); return; }
-  try { current?.dispose?.(); } catch (e) { console.warn(e); }
+  // Đổi ngôn ngữ: trang cũ trả "carry" (phiên PLC/máy, trạng thái soạn thảo…) để trang mới dùng lại.
+  const relang = relangPending; relangPending = false;
+  let carry = null;
+  const scroll = relang ? [root.querySelector('main.page')?.scrollTop || 0, window.scrollY] : null;
+  try { carry = current?.dispose?.(relang ? { relang: true } : undefined) || null; } catch (e) { console.warn(e); }
+  if (carry && typeof carry !== 'object') carry = null;
+  if (carry) carry.path = router.path;
   current = null;
   const page = h('main.page', { class: full ? 'full' : '' });
   root.replaceChildren(topbar(user, active), page);
   try {
-    const res = await pageFn(params, { user, page });
+    const res = await pageFn(params, { user, page, carry });
     if (token !== renderToken) { res?.dispose?.(); return; }
     current = res;
     if (res?.el) page.replaceChildren(res.el);
+    if (scroll) { page.scrollTop = scroll[0]; window.scrollTo(0, scroll[1]); }
   } catch (e) {
     console.error(e);
     page.replaceChildren(h('div.container', h('div.card', h('div.card-b', h('h2', t('app.error')), h('p.err-text', String(e.message || e)), h('a', { href: '#/' }, t('app.backHome'))))));
+  } finally {
+    // Trang mới không nhận carry (vd. lỗi) → giải phóng phiên cũ.
+    if (carry && !carry.taken) { try { carry.release?.(); } catch (e) { console.warn(e); } }
   }
 }
 
@@ -92,5 +112,6 @@ router
   .add('/teacher/review/:student/:lab', teacherGuard((p) => show(reviewPage, p, { role: 'teacher', active: 'teacher', full: true })))
   .add('/teacher/solution/:lab', teacherGuard((p) => show(reviewPage, { ...p, solution: true }, { role: 'teacher', active: 'teacher', full: true })));
 router.on('notfound', () => router.go('/', { replace: true }));
+await locReady;
 router.resolve();
 loadEngine();

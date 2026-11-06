@@ -1,6 +1,8 @@
 // Cầu nối Engine: dùng engine thật (src/plc, src/sim, src/labs) nếu nạp được, nếu không thì dùng shim giả lập.
 // CÔNG TẮC DUY NHẤT: ENGINE_MODE = 'auto' | 'real' | 'fake'. Có thể ghi đè bằng URL: index.html?engine=fake
 import { COURSE, MACHINE_TITLES } from './course.js';
+import { t } from './i18n.js';
+import { trMachine } from './loc.js';
 
 export const ENGINE_MODE = 'auto';
 
@@ -15,7 +17,7 @@ function mode() {
 }
 
 async function tryImport(path) {
-  try { return await import(path); } catch (e) { console.info('[engine] không nạp được', path, '→ dùng shim.', e?.message || e); return null; }
+  try { return await import(path); } catch (e) { console.info('[engine] cannot load', path, '→ using the dev shim.', e?.message || e); return null; }
 }
 
 import { PUBLIC_MODE } from './config.js';
@@ -75,26 +77,28 @@ export function normIo(e, dirHint) {
   return { addr: addr.startsWith('%') || !addr ? addr : '%' + addr, tag, desc, dir, type, nc: !!e.nc };
 }
 
+/** Nút/đèn chung (mô tả theo ngôn ngữ hiện tại). */
+const common = (addr, tag, key, dir, nc) => ({ addr, tag, get desc() { return t(key); }, dir, type: 'Bool', ...(nc ? { nc: true } : {}) });
 export const COMMON_INPUTS = [
-  { addr: '%I0.0', tag: 'Start', desc: 'Nút Start (NO)', dir: 'I', type: 'Bool' },
-  { addr: '%I0.1', tag: 'Stop', desc: 'Nút Stop (NC)', dir: 'I', type: 'Bool', nc: true },
-  { addr: '%I0.2', tag: 'Reset', desc: 'Nút Reset', dir: 'I', type: 'Bool' },
-  { addr: '%I0.3', tag: 'EStop', desc: 'Dừng khẩn (NC)', dir: 'I', type: 'Bool', nc: true },
-  { addr: '%I0.4', tag: 'AutoMan', desc: 'Chọn chế độ (1 = Auto)', dir: 'I', type: 'Bool' },
+  common('%I0.0', 'Start', 'io.cStart', 'I'),
+  common('%I0.1', 'Stop', 'io.cStop', 'I', true),
+  common('%I0.2', 'Reset', 'io.cReset', 'I'),
+  common('%I0.3', 'EStop', 'io.cEStop', 'I', true),
+  common('%I0.4', 'AutoMan', 'io.cAutoMan', 'I'),
 ];
 export const COMMON_OUTPUTS = [
-  { addr: '%Q0.0', tag: 'H_Run', desc: 'Đèn chạy', dir: 'Q', type: 'Bool' },
-  { addr: '%Q0.1', tag: 'H_Fault', desc: 'Đèn lỗi', dir: 'Q', type: 'Bool' },
+  common('%Q0.0', 'H_Run', 'io.cHRun', 'Q'),
+  common('%Q0.1', 'H_Fault', 'io.cHFault', 'Q'),
 ];
 
 /** ioMap của máy (đã chuẩn hóa, có cả bảng nút chung). */
 export function machineIo(def) {
-  const io = def?.ioMap || {};
+  const io = trMachine(def)?.ioMap || {};
   const ins = (io.inputs || []).map((e) => normIo(e, 'I')).filter(Boolean);
   const outs = (io.outputs || []).map((e) => normIo(e, 'Q')).filter(Boolean);
   const has = (list, a) => list.some((x) => x.addr.toUpperCase() === a);
-  const inputs = [...COMMON_INPUTS.filter((c) => !has(ins, c.addr)), ...ins];
-  const outputs = [...COMMON_OUTPUTS.filter((c) => !has(outs, c.addr)), ...outs];
+  const inputs = [...COMMON_INPUTS.filter((c) => !has(ins, c.addr)).map((c) => ({ ...c })), ...ins];
+  const outputs = [...COMMON_OUTPUTS.filter((c) => !has(outs, c.addr)).map((c) => ({ ...c })), ...outs];
   const order = (a) => { const m = /%[IQ]W?(\d+)(?:\.(\d))?/i.exec(a.addr); return m ? (+m[1]) * 10 + (+m[2] || 0) + (/W/i.test(a.addr) ? 1000 : 0) : 9999; };
   inputs.sort((a, b) => order(a) - order(b)); outputs.sort((a, b) => order(a) - order(b));
   return { inputs, outputs };
@@ -141,7 +145,8 @@ export function mergeCourse(LABS, MACHINES) {
   return out;
 }
 
-export function machineTitle(id, def) { return def?.title || MACHINE_TITLES[id] || id; }
+/** Tên máy theo ngôn ngữ hiện tại (def đã dịch, dự phòng bảng machine.* trong i18n). */
+export function machineTitle(id, def) { return (def && trMachine(def)?.title) || MACHINE_TITLES[id] || id; }
 
 /** Tạo project mặc định từ ioMap của máy. */
 export function defaultProject(machineId, def, name) {

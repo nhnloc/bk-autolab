@@ -13,7 +13,8 @@ try {
   const lab = LABS.find((l) => l.machineId === id);
   const m = createMachine(id);
   const plc = new PlcRuntime(null, { manualClock: true }); plc.load(solutionProject(lab)); plc.attach(m); plc.start();
-  plc.runFor(300); m.press('Start', true); plc.runFor(200); m.press('Start', false); plc.runFor(secs * 1000); if (q.get('press')) { m.press(q.get('press'), true); plc.runFor(200); m.press(q.get('press'), false); plc.runFor(+(q.get('t2') || 4) * 1000); }
+  plc.runFor(300); if (!q.get('nostart')) m.press('Start', true); plc.runFor(200); m.press('Start', false); plc.runFor(secs * 1000); if (q.get('forceQ')) { for (const a of q.get('forceQ').split(',')) plc.force(a, true); plc.runFor(+(q.get('t2') || 1) * 1000); }
+  if (q.get('press')) { m.press(q.get('press'), true); plc.runFor(200); m.press(q.get('press'), false); plc.runFor(+(q.get('t2') || 4) * 1000); }
   const base = new URL('..', location.href).href;
   const v = new MachineViewer(document.getElementById('v'), { machineId: id });
   v.setSource(() => m.getVisual());

@@ -1,13 +1,16 @@
 // HMI vận hành chung cho mọi máy (phong cách màn hình cảm ứng công nghiệp):
 // Tổng quan (mimic 2D) · Chạy tay · Cảnh báo · Thống kê.
 import { h, svg, fmtValue } from '../dom.js';
-import { t } from '../i18n.js';
-import { machineIo } from '../engine.js';
+import { t, fmtTime } from '../i18n.js';
+import { machineIo, machineTitle } from '../engine.js';
+import { trText } from '../loc.js';
 import { ioValue } from './ioState.js';
 
-const STAT_LABELS = { produced: 'Sản phẩm đạt', rejected: 'Loại bỏ', defects: 'Lỗi', crashes: 'Va chạm', cycleTimeMs: 'Chu kỳ (ms)', running: 'Đang chạy' };
+const STAT_KEYS = ['produced', 'rejected', 'defects', 'crashes', 'cycleTimeMs', 'running'];
+const statLabel = (k) => (STAT_KEYS.includes(k) ? t('hmi.st.' + k) : k);
 
-export function createHmi({ m, getPlc, title }) {
+/** keep: trạng thái giữ lại khi vẽ lại (đổi ngôn ngữ) — { forced, acked, screen }. */
+export function createHmi({ m, getPlc, title, keep }) {
   const { inputs, outputs } = machineIo(m.def);
   const cyls = [];
   for (const o of outputs) {
@@ -17,9 +20,9 @@ export function createHmi({ m, getPlc, title }) {
   }
   const motors = outputs.filter((o) => /^M\d/.test(o.tag) && o.type === 'Bool');
   const sensors = inputs.filter((i) => i.type === 'Bool' && !/^(Start|Stop|Reset|EStop|AutoMan)$/.test(i.tag) && !/^\dB\d$/.test(i.tag));
-  const forced = new Map();
-  let screen = 'overview';
-  const acked = new Set();
+  const forced = keep?.forced || new Map();
+  let screen = keep?.screen || 'overview';
+  const acked = keep?.acked || new Set();
 
   const hdrMode = h('span.hmi-pill'), hdrState = h('span.hmi-pill'), clock = h('span.hmi-clock');
   const content = h('div.hmi-content');
@@ -29,7 +32,7 @@ export function createHmi({ m, getPlc, title }) {
   navBtns[2].append(alarmCnt);
   const el = h('div.hmi-wrap', h('div.hmi-bezel', h('div.hmi-brand', 'BK-AutoLab HMI · 12"'),
     h('div.hmi-screen',
-      h('div.hmi-header', h('b', title || m.def?.title || 'HMI'), h('span.spacer'), hdrMode, hdrState, clock),
+      h('div.hmi-header', h('b', title || machineTitle(m.def?.id, m.def) || 'HMI'), h('span.spacer'), hdrMode, hdrState, clock),
       content,
       h('div.hmi-footer', navBtns))));
 
@@ -94,8 +97,8 @@ export function createHmi({ m, getPlc, title }) {
     const kpi = h('div.hmi-kpis');
     dyn.push(() => {
       const st = m.stats || {};
-      const disp = (m.getVisual?.()?.displays || []).map((d) => h('div.hmi-kpi', h('span', d.label || d.id), h('b', `${fmtValue(d.value)}${d.unit ? ' ' + d.unit : ''}`)));
-      kpi.replaceChildren(...disp, ...['produced', 'rejected', 'cycleTimeMs'].filter((k) => k in st).map((k) => h('div.hmi-kpi', h('span', STAT_LABELS[k] || k), h('b', fmtValue(st[k])))));
+      const disp = (m.getVisual?.()?.displays || []).map((d) => h('div.hmi-kpi', h('span', trText(d.label) || d.id), h('b', `${fmtValue(d.value)}${d.unit ? ' ' + trText(d.unit) : ''}`)));
+      kpi.replaceChildren(...disp, ...['produced', 'rejected', 'cycleTimeMs'].filter((k) => k in st).map((k) => h('div.hmi-kpi', h('span', statLabel(k)), h('b', fmtValue(st[k])))));
     });
     return h('div.hmi-ov', s, kpi);
   }
@@ -125,11 +128,11 @@ export function createHmi({ m, getPlc, title }) {
   function alarmsList() {
     const list = [];
     const ev = Array.isArray(m.events) ? m.events : [];
-    ev.forEach((e, i) => { if (e.level === 'warn' || e.level === 'error') list.push({ key: 'ev' + i + (e.t ?? ''), t: e.t, text: e.message, level: e.level }); });
+    ev.forEach((e, i) => { if (e.level === 'warn' || e.level === 'error') list.push({ key: 'ev' + i + (e.t ?? ''), t: e.t, text: trText(e.message), level: e.level }); });
     const plc = getPlc();
     const estop = inputs.find((x) => x.tag === 'EStop');
     if (estop && ioValue(estop, m, plc) === false) list.push({ key: 'estop', text: t('hmi.alEstop'), level: 'error', active: true });
-    if (m.crashed) list.push({ key: 'crash', text: t('op.crashed') + ' ' + (m.crashed.message || ''), level: 'error', active: true });
+    if (m.crashed) list.push({ key: 'crash', text: t('op.crashed') + ' ' + (trText(m.crashed.message) || ''), level: 'error', active: true });
     if (plc && plc.state !== 'RUN') list.push({ key: 'stop', text: t('hmi.alPlcStop'), level: 'warn', active: true });
     return list;
   }
@@ -155,11 +158,11 @@ export function createHmi({ m, getPlc, title }) {
       const st = m.stats || {};
       const v = m.getVisual?.() || {};
       const extra = {};
-      if (v.drive) { extra['Tốc độ biến tần (%)'] = v.drive.speedPct; extra['Lỗi biến tần'] = v.drive.fault || '—'; }
-      if (v.magazine) extra['Ổ chứa carton'] = `${v.magazine.count}/${v.magazine.capacity}`;
+      if (v.drive) { extra[t('hmi.st.driveSpeed')] = v.drive.speedPct; extra[t('hmi.st.driveFault')] = v.drive.fault ? trText(v.drive.fault) : '—'; }
+      if (v.magazine) extra[t('hmi.st.magazine')] = `${v.magazine.count}/${v.magazine.capacity}`;
       const plc = getPlc();
-      if (plc) { extra['Thời gian quét (ms)'] = (+plc.scanTimeMs || 0).toFixed(2); extra['Chu kỳ PLC'] = plc.cycle; }
-      body.replaceChildren(...[...Object.entries(st).map(([k, val]) => [STAT_LABELS[k] || k, val]), ...Object.entries(extra)].map(([k, val]) => h('tr', h('td', k), h('td.num.mono', fmtValue(val)))));
+      if (plc) { extra[t('hmi.st.scanMs')] = (+plc.scanTimeMs || 0).toFixed(2); extra[t('hmi.st.plcCycle')] = plc.cycle; }
+      body.replaceChildren(...[...Object.entries(st).map(([k, val]) => [statLabel(k), val]), ...Object.entries(extra)].map(([k, val]) => h('tr', h('td', k), h('td.num.mono', fmtValue(val)))));
     });
     return h('div.hmi-stats', h('table.hmi-table', body));
   }
@@ -176,7 +179,7 @@ export function createHmi({ m, getPlc, title }) {
     const plc = getPlc();
     const st = plc?.state || 'STOP';
     hdrState.textContent = st; hdrState.className = 'hmi-pill ' + (st === 'RUN' ? 'run' : 'stop');
-    clock.textContent = new Date().toLocaleTimeString('vi-VN');
+    clock.textContent = fmtTime();
     const n = alarmsList().filter((a) => !acked.has(a.key)).length;
     alarmCnt.hidden = !n; alarmCnt.textContent = String(n);
     dyn.forEach((f) => f());
@@ -185,6 +188,12 @@ export function createHmi({ m, getPlc, title }) {
   const timer = setInterval(() => { if (el.isConnected && el.offsetParent !== null) tick(); }, 200);
   return {
     el,
-    dispose() { clearInterval(timer); const plc = getPlc(); for (const a of forced.keys()) { try { plc?.unforce(a); } catch { /* bỏ qua */ } } },
+    /** keepForces: giữ đầu ra đang ép (trang vẽ lại khi đổi ngôn ngữ) → trả trạng thái để tạo lại HMI. */
+    dispose({ keepForces = false } = {}) {
+      clearInterval(timer);
+      if (keepForces) return { forced, acked, screen };
+      const plc = getPlc(); for (const a of forced.keys()) { try { plc?.unforce(a); } catch { /* bỏ qua */ } }
+      return null;
+    },
   };
 }

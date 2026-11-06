@@ -253,3 +253,53 @@ missing classes.json error + retry. No console errors in the flow.
 Gaps: `PUBLIC_MODE` paths reviewed but only exercised on localhost. `README.md` still mentions the old demo logins
 (not in the UI's file set). Data stays per browser (by design until there is a server); teacher schedule/fault settings
 do not reach students' browsers.
+
+## UI — Song ngữ (2026-11-06)
+
+The EN/VI switch now covers the whole front-end. UI files only (`index.html`, `src/app/**`, `src/scene/**`,
+new `tests/ui-strings.test.mjs`); content translation comes from `src/i18n/loc.js` (content agent).
+
+- **UI strings** (`src/app/i18n.js`): every user-visible string goes through `t()`; `en` is now complete (553 keys,
+  same `{params}` as `vi`). Moved in: course/part/lab titles and `MACHINE_TITLES` (`course.*`, `part.*`, `machine.*` —
+  `COURSE`/`PARTS`/`MACHINE_TITLES` in `src/app/course.js` expose `title` getters, `COURSE_TITLE` → `courseTitle()`),
+  mock-API / classes.json / teacher-password errors, login placeholders, common I/O descriptions, HMI statistics,
+  palette instruction names + groups, LAD property kinds, address validation, block types, 2D-fallback and 3D
+  aria/notes, CSV headers + file name, git commit hint, default E-Stop label, teacher avatar/name (`role.teacher`).
+  Console-only developer logs were switched to English. Helpers: `locale()` (`vi-VN` / `en-GB`), `fmtDate`,
+  `fmtTime`, `fmtDateTime`, `fmtNum`; every date/time (save state, info/diagnostics, HMI clock, results, gradebook
+  students, due dates) uses them. `setLang` also updates `<html lang>` and the meta description; `index.html` sets
+  `lang` early from `bk.lang`.
+- **Content** (`src/app/loc.js`): thin wrapper over `src/i18n/loc.js` (dynamic import, identity fallback, always
+  identity for `vi`; `main.js` awaits it before the first render). Translated at display time, engine objects untouched:
+  `trMachine` (machine title/summary in guide + HMI, I/O descriptions through `machineIo`, operator-panel button
+  labels, fault labels in the teacher fault tab), `trLab` (via `getLabs()` — returns localized `title/summary/
+  objectives/steps/hints`, `lab.raw` stays original for grading), `trLecture` (lecture/outcomes/quiz in guide and
+  syllabus), `trCourseInfo` (home/syllabus), `trText` (HMI alarms from `m.events`/`m.crashed`, crash banners, LED
+  display + trend labels/units, 2D fallback display labels, grading criteria + details in results and teacher review,
+  compile errors in the Info pane, runtime errors in Diagnostics/toasts, watch-table write/force errors, project name
+  in the tree).
+- **Switching language keeps state**: the topbar switch re-renders the page with a *carry*: `dispose({ relang: true })`
+  returns state that the new page takes (`carry.taken`; `main.js` calls `carry.release()` if nobody took it).
+  Lab page: same PLC/machine session keeps running (RUN, forces, faults), Studio state (open tabs, active doc, undo/redo,
+  selection, monitor, compile result, diagnostics re-translated), HMI screen + forced outputs + acknowledged alarms,
+  I/O-panel input forces, current tab (work/HMI/results), last result + note, guide tab/open/reading mode. Review page:
+  session, Studio state, regrade result. Class page: tab, and on the fault tab the preview session, student/lab,
+  live/assigned faults. Class list: rows being edited. Login: typed name/class/student ID and tab. Scroll restored.
+- **Checker** `node tests/ui-strings.test.mjs`: scans string/template literals (comments skipped) in `index.html`,
+  `src/app/**`, `src/scene/**` for Vietnamese diacritics outside `i18n.js`, and checks `vi`/`en` key parity, matching
+  `{params}` and no diacritics in `en`. Allow-list: `src/app/dev/` (fake-engine data used only with `?engine=fake`) and
+  the bilingual `<noscript>` line.
+
+Tested in the in-app browser at 1366×768 (2D fallback, real engine) in EN: registration (typed values survive a switch),
+login errors, home, syllabus, L01 lecture + quiz feedback + tasks, RUN, input force, HMI alarms, test grade + results,
+switch EN↔VI while RUN (same PLC object, still RUN, forces/HMI/tabs/undo kept), L03 alarms (DOL-start warning,
+KM2+KM3 collision), LED displays, trend legend, compile error in Info pane, submit dialog, teacher (local session):
+dashboard, gradebook, schedule, students, fault tab (preview kept running across a switch), solution review + regrade,
+class list. Back in VI: home, syllabus, lab unchanged. No console errors (only the pane's own `/favicon.ico` 404).
+
+Remaining Vietnamese in EN (by design): student/class names and class terms (data), tag comments, network
+titles/comments and SCL comments inside student/starter projects (editable code — not translated so edits never save
+English into the project), proper names. Gaps: watch-table forces set from the watch table itself are kept on the PLC
+but the table's "F" markers reset after a language switch; a grading run in progress during a switch finishes on the
+old (detached) results panel — re-run "Test grade"; strings coming from the engine that `trText` does not know stay
+Vietnamese (fallback by design). English plurals use "(s)".

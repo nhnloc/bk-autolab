@@ -53,7 +53,7 @@ export function createLadEditor(ctx, blockName) {
       onchange: (e) => ctx.commit((p) => { netOf(p, i).comment = e.target.value; }, { keepEditor: true }) });
     const head = h('div.nw-head', { onmousedown: (e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') setSel({ net: i, path: null }); } },
       h('button.nw-toggle', { type: 'button', 'aria-expanded': String(!nw._collapsed), title: t('lad.collapse'), onclick: () => { nw._collapsed = !nw._collapsed; renderAll(); } }, icon(nw._collapsed ? 'chevronR' : 'chevronD', { size: 12 })),
-      h('span.nw-label', `Network ${i + 1}:`), title);
+      h('span.nw-label', `${t('info.network')} ${i + 1}:`), title);
     const body = h('div.nw-body');
     const wrap = h('div.network', { class: [isSel && 'selected'], dataset: { net: i } }, head, nw._collapsed ? null : comment, nw._collapsed ? null : body);
     const ne = { el: wrap, body, i };
@@ -95,7 +95,7 @@ export function createLadEditor(ctx, blockName) {
     const avail = Math.max(560, (scroll.clientWidth || 800) - 40);
     const { w, h: hh } = drawRung(g, nw.rung, { project: ctx.project, pf, read, sel: selSet, ...tagMaps(), stretchTo: avail, emptyHint: ctx.readOnly ? '' : t('lad.emptyHint') });
     const W = Math.max(w + 24, avail + 16);
-    const s2 = svg('svg', { class: 'lad-svg' + (pf ? ' monitor' : ''), width: W, height: hh, viewBox: `0 0 ${W} ${hh}`, role: 'img', 'aria-label': `Network ${ne.i + 1}` },
+    const s2 = svg('svg', { class: 'lad-svg' + (pf ? ' monitor' : ''), width: W, height: hh, viewBox: `0 0 ${W} ${hh}`, role: 'img', 'aria-label': `${t('info.network')} ${ne.i + 1}` },
       svg('line', { x1: 4, y1: 2, x2: 4, y2: hh - 2, class: 'rail' + (pf ? ' on' : '') }), g);
     s2.addEventListener('mousedown', (e) => onSvgDown(e, ne.i));
     s2.addEventListener('dblclick', (e) => onSvgDbl(e, ne.i));

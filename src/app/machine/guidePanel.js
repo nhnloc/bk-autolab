@@ -7,9 +7,11 @@ import { machineIo, machineTitle } from '../engine.js';
 import { icon } from '../components/icons.js';
 import { renderMd, mdInline } from '../components/md.js';
 import { getQuiz, setQuiz } from '../lectures.js';
+import { trMachine } from '../loc.js';
 
 export function createGuidePanel({ lab, def, lecture, userId, initialTab = 'task', onCollapse, onTab, onWide }) {
   const { inputs, outputs } = machineIo(def);
+  const summary = lab.summary || trMachine(def)?.summary || '';
   const ioTable = (rows) => h('table.io-table', h('thead', h('tr', h('th', t('guide.addr')), h('th', t('guide.tag')), h('th', t('guide.desc')))),
     h('tbody', rows.map((r) => h('tr', h('td.mono', r.addr), h('td.mono', r.tag), h('td', r.desc || '')))));
   const stars = '★'.repeat(lab.level || 1) + '☆'.repeat(Math.max(0, 4 - (lab.level || 1)));
@@ -18,7 +20,7 @@ export function createGuidePanel({ lab, def, lecture, userId, initialTab = 'task
   /* ---------- Nhiệm vụ ---------- */
   const taskPane = h('div.guide-body.guide-task', { role: 'tabpanel' },
     h('div.guide-meta', h('span.badge.info', machineTitle(lab.machineId, def)), h('span.badge', { title: t('home.level') }, stars), mins ? h('span.badge', `${mins} ${t('guide.min')}`) : null),
-    lab.summary || def?.summary ? h('p.muted', lab.summary || def.summary) : null,
+    summary ? h('p.muted', summary) : null,
     lab.objectives?.length ? h('section', h('h3', t('guide.objectives')), h('ul', lab.objectives.map((o) => h('li', o)))) : null,
     lab.steps?.length ? h('section', h('h3', t('guide.steps')), h('ol.steps', lab.steps.map((s) => h('li', s.title ? h('b', s.title + ' ') : null, s.text)))) : null,
     h('section', h('h3', t('guide.io')),

@@ -1,6 +1,7 @@
 // Khu "Máy": cảnh 3D (góc nhìn đặt sẵn) + bảng nút vận hành + bảng I/O.
 import { h } from '../dom.js';
 import { t } from '../i18n.js';
+import { trText } from '../loc.js';
 import { split } from '../components/ui.js';
 import { machineIo } from '../engine.js';
 import { MachineViewer } from '../../scene/viewer.js';
@@ -13,7 +14,8 @@ import { createOperatorPanel } from './operatorPanel.js';
 import { createIoPanel } from './ioPanel.js';
 import { createTrend } from './readouts.js';
 
-export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPanel = false, splitKey = 'machine-v', compact = false }) {
+/** ioForced: Map đầu vào đang ép (do trang giữ) — để giữ trạng thái ép khi vẽ lại (đổi ngôn ngữ). */
+export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPanel = false, splitKey = 'machine-v', compact = false, ioForced }) {
   let lastVisual = null;
   const getVisual = () => lastVisual;
   const host = h('div.viewer-host');
@@ -26,7 +28,7 @@ export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPa
   const inputTags = machineIo(m.def).inputs.map((x) => x.tag);
   const opts = { machineId: m.def?.id || m.id, inputTags };
   let viewer;
-  if (hasWebGL()) { try { viewer = new MachineViewer(host, opts); } catch (e) { console.info('[viewer] WebGL lỗi, dùng sơ đồ 2D:', e?.message); viewer = null; } }
+  if (hasWebGL()) { try { viewer = new MachineViewer(host, opts); } catch (e) { console.info('[viewer] WebGL error, using the 2D diagram:', e?.message); viewer = null; } }
   if (!viewer) { host.replaceChildren(); viewer = new Fallback2D(host, opts); views.hidden = true; }
   viewer.setSource(() => { lastVisual = m.getVisual(); return lastVisual; });
   viewer.getOutputs = () => m.outputs;
@@ -39,7 +41,7 @@ export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPa
   viewer.load().then(() => { stage.querySelector('.viewer-loading')?.remove(); badge.hidden = !viewer.isPlaceholder; }).catch((e) => console.warn(e));
 
   const op = createOperatorPanel({ m, getVisual, readOnly: readOnlyPanel });
-  const io = createIoPanel({ m, getPlc, allowOverride });
+  const io = createIoPanel({ m, getPlc, allowOverride, forced: ioForced });
   const bottom = h('div.mv-bottom', op.el, io.el);
   const trend = createTrend();
   const top = h('div.mv-top', stage, trend.el);
@@ -50,7 +52,7 @@ export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPa
     op.refresh(); io.refresh();
     trend.update(lastVisual?.trend);
     const c = lastVisual?.crashed;
-    crash.hidden = !c; if (c) crash.textContent = '⚠ ' + t('op.crashed') + ' ' + (c.message || '');
+    crash.hidden = !c; if (c) crash.textContent = '⚠ ' + t('op.crashed') + ' ' + (trText(c.message) || '');
   }, 100);
   const onTheme = () => viewer.applyTheme();
   window.addEventListener('bk-theme', onTheme);

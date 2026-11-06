@@ -48,7 +48,11 @@ export class Motor extends Machine {
 
   physics(dt) {
     const k1 = this.act('KM1'), k2 = this.act('KM2');
-    if (k1 && k2) { this.crash('KM1 và KM2 đóng cùng lúc — ngắn mạch 2 pha, CB nhảy'); }
+    if (k1 && k2 && !this.crashed) {
+      this.effect('spark', 'out_KM1', 2200); this.effect('spark', 'out_KM2', 2200);
+      this.effect('smoke', 'out_KM1', 7000, 0.8); this.effect('breaker', null, 4000);
+      this.crash('KM1 và KM2 đóng cùng lúc — ngắn mạch 2 pha, CB nhảy');
+    }
     let dir = this.crashed || !this.f1 ? 0 : k1 ? 1 : k2 ? -1 : 0;
     // đảo chiều đột ngột khi động cơ còn quay
     if (dir !== 0 && dir === -this.lastDir && Math.abs(this.speed) > 0.3) { this.stats.defects++; this.log('Đảo chiều khi động cơ còn quay — dòng điện và lực cơ khí rất lớn. Hãy dừng ít nhất 0,5 s trước khi đảo chiều', 'warn'); }
@@ -69,7 +73,7 @@ export class Motor extends Machine {
     if (this.panel.Obstacle && this.pos < OBST_H && dir < 0) { this.pos = Math.max(this.pos, OBST_H - 0.002); if (!this.crashed) this.crash('Cửa đè lên vật cản dưới chân cửa'); }
     // rơ-le nhiệt: tích nhiệt khi kẹt/quá tải, tác động sau ~2,5 s
     this.heat = Math.max(0, this.heat + (load ? dt : -dt * 0.3));
-    if (this.heat > 2500 && this.f1) { this.f1 = false; this.stats.defects++; this.log('Rơ-le nhiệt F1 tác động: động cơ quá tải (chạy vào giới hạn cơ khí hoặc bị kẹt)', 'error'); }
+    if (this.heat > 2500 && this.f1) { this.effect('smoke', 'drum', 4000, 0.4); this.f1 = false; this.stats.defects++; this.log('Rơ-le nhiệt F1 tác động: động cơ quá tải (chạy vào giới hạn cơ khí hoặc bị kẹt)', 'error'); }
     if (!this.f1 && this.panel.Reset && this.heat < 1500) { this.f1 = true; this.log('Đã reset rơ-le nhiệt F1', 'info'); }
     // hoàn thành hành trình
     if (prev < 1 && this.pos >= 1) this.produced(true);
@@ -83,6 +87,8 @@ export class Motor extends Machine {
     this.inputs.LS_Down = this.pos <= 0.005;
     this.inputs.PE = this.faults.peDirty || (this.panel.Obstacle && this.pos > 0.14);
   }
+
+  fxState() { return this.heat > 300 ? [{ id: 'heat', type: 'heat', at: 'drum', intensity: Math.min(1, this.heat / 2500), age: 0 }] : []; }
 
   visualParts() {
     const p = this.visualBase();

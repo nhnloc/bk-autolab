@@ -1,4 +1,5 @@
 // Danh sách lớp: nguồn duy nhất là file tĩnh data/classes.json trong repo (không có server).
+import { t } from './i18n.js';
 // Giảng viên sửa bằng trang "Danh sách lớp" → tải file mới → thay data/classes.json → git push.
 
 const URL_ = 'data/classes.json';
@@ -9,7 +10,7 @@ let cache = null;
 /** Chuẩn hóa nội dung file → [{id, name, term}] (bỏ dòng hỏng, bỏ trùng mã). */
 export function normalizeClasses(json) {
   const arr = Array.isArray(json) ? json : Array.isArray(json?.classes) ? json.classes : null;
-  if (!arr) throw new Error('File không đúng dạng { "classes": [ ... ] }');
+  if (!arr) throw new Error(t('cls.errShape'));
   const seen = new Set();
   const out = [];
   for (const c of arr) {
@@ -26,10 +27,10 @@ export function loadClasses({ force = false } = {}) {
   if (cache && !force) return cache;
   cache = (async () => {
     let res;
-    try { res = await fetch(URL_, { cache: 'no-cache' }); } catch { throw new Error('Không tải được danh sách lớp (mất mạng?). Hãy tải lại trang.'); }
-    if (!res.ok) throw new Error(res.status === 404 ? 'Chưa có danh sách lớp (thiếu file data/classes.json). Hãy báo giảng viên.' : `Không tải được danh sách lớp (HTTP ${res.status}).`);
+    try { res = await fetch(URL_, { cache: 'no-cache' }); } catch { throw new Error(t('cls.errOffline')); }
+    if (!res.ok) throw new Error(res.status === 404 ? t('cls.err404') : t('cls.errHttp', { status: res.status }));
     let json;
-    try { json = await res.json(); } catch { throw new Error('File data/classes.json bị lỗi định dạng JSON. Hãy báo giảng viên.'); }
+    try { json = await res.json(); } catch { throw new Error(t('cls.errJson')); }
     return normalizeClasses(json);
   })();
   cache.catch(() => { cache = null; }); // lần sau thử lại

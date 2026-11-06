@@ -1,6 +1,7 @@
 // Cây project (trái): thiết bị, khối chương trình, tag PLC, bảng theo dõi.
 import { h } from '../dom.js';
 import { t } from '../i18n.js';
+import { trText } from '../loc.js';
 import { icon } from '../components/icons.js';
 import { modal, confirmBox, toast } from '../components/ui.js';
 
@@ -36,7 +37,7 @@ export function createProjectTree(ctx) {
     el.replaceChildren(
       h('div.pane-title', t('tree.title')),
       h('ul.tree', { role: 'tree' },
-        node('dev', `${p.name || 'Project'}`, 'folder', [
+        node('dev', trText(p.name) || 'Project', 'folder', [
           node('cpu', `PLC_1 [CPU ${p.cpu || '1214C'} DC/DC/DC]`, 'cpu', [
             leaf(t('tree.devconf'), 'grid', { kind: 'device' }),
             node('blocks', t('tree.blocks'), 'folder', [
@@ -57,7 +58,7 @@ export function createProjectTree(ctx) {
 
   async function addBlock() {
     const nameIn = h('input.input', { value: '', placeholder: 'FB_Cylinder' });
-    const typeSel = h('select.select', ['FB', 'FC', 'DB', 'OB'].map((x) => h('option', { value: x }, { FB: 'FB — khối hàm có nhớ', FC: 'FC — hàm', DB: 'DB — khối dữ liệu toàn cục', OB: 'OB — khối tổ chức' }[x])));
+    const typeSel = h('select.select', ['FB', 'FC', 'DB', 'OB'].map((x) => h('option', { value: x }, `${x} — ${t('tree.bt' + x)}`)));
     const langSel = h('select.select', h('option', { value: 'LAD' }, 'LAD'), h('option', { value: 'SCL' }, 'SCL'));
     typeSel.addEventListener('change', () => { langSel.disabled = typeSel.value === 'DB'; });
     const ok = await modal({ title: t('tree.addBlock'), body: h('div',

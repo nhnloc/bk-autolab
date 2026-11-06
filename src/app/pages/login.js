@@ -9,13 +9,16 @@ import { router } from '../router.js';
 import { icon } from '../components/icons.js';
 import { toast } from '../components/ui.js';
 
-export async function loginPage() {
-  let mode = api.localStudentCount() ? 'login' : 'register';
+export async function loginPage(_, { carry } = {}) {
+  // Đổi ngôn ngữ: giữ chữ đã nhập và tab đang chọn.
+  const keep = carry?.login || null;
+  if (keep) carry.taken = true;
+  let mode = keep?.mode || (api.localStudentCount() ? 'login' : 'register');
 
   /* ---------- Đăng ký ---------- */
-  const rName = h('input.input#rg-name', { autocomplete: 'name', maxlength: 80, placeholder: 'Nguyễn Văn An', required: true });
+  const rName = h('input.input#rg-name', { autocomplete: 'name', maxlength: 80, placeholder: t('reg.namePh'), required: true, value: keep?.name || '' });
   const rClass = h('select.select#rg-class', { required: true, disabled: true }, h('option', { value: '' }, t('common.loading')));
-  const rMssv = h('input.input#rg-mssv', { inputmode: 'numeric', autocomplete: 'off', maxlength: 14, placeholder: '2210123', required: true });
+  const rMssv = h('input.input#rg-mssv', { inputmode: 'numeric', autocomplete: 'off', maxlength: 14, placeholder: '2210123', required: true, value: keep?.mssv || '' });
   const rClassMsg = h('div.small.field-msg');
   const rErr = h('div.err-text.small', { role: 'alert' });
   const rBtn = h('button.btn.primary.wide', { type: 'submit' }, t('reg.submit'));
@@ -28,6 +31,7 @@ export async function loginPage() {
       if (!list.length) throw new Error(t('reg.noClasses'));
       rClass.replaceChildren(h('option', { value: '' }, t('reg.pickClass')), ...list.map((c) => h('option', { value: c.id }, c.term ? `${c.name} (${c.term})` : c.name)));
       if (list.length === 1) rClass.value = list[0].id;
+      if (keep?.classId && list.some((c) => c.id === keep.classId)) rClass.value = keep.classId;
       rClass.disabled = false; rBtn.disabled = false;
     } catch (e) {
       rClass.replaceChildren(h('option', { value: '' }, '—'));
@@ -60,7 +64,7 @@ export async function loginPage() {
   rClass.addEventListener('change', () => fieldErr(rClass, false));
 
   /* ---------- Đăng nhập ---------- */
-  const lMssv = h('input.input#lg-mssv', { inputmode: 'numeric', autocomplete: 'username', maxlength: 14, placeholder: '2210123', required: true });
+  const lMssv = h('input.input#lg-mssv', { inputmode: 'numeric', autocomplete: 'username', maxlength: 14, placeholder: '2210123', required: true, value: keep?.lmssv || '' });
   const lErr = h('div.err-text.small', { role: 'alert' });
   const lBtn = h('button.btn.primary.wide', { type: 'submit' }, t('login.submit'));
   const loginForm = h('form.login-form', { novalidate: true, onsubmit: async (e) => {
@@ -87,18 +91,18 @@ export async function loginPage() {
 
   // Đăng nhập giảng viên: ô mật khẩu (ẩn dưới liên kết để không làm rối trang sinh viên)
   const tErr = h('div.err-text.small', { role: 'alert' });
-  const tPass = h('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Mật khẩu giảng viên', 'aria-label': 'Mật khẩu giảng viên' });
+  const tPass = h('input', { type: 'password', autocomplete: 'current-password', placeholder: t('login.teacherPass'), 'aria-label': t('login.teacherPass') });
   const tSubmit = async (e) => {
     e?.preventDefault();
     tErr.textContent = '';
     try { await api.loginTeacher(tPass.value); router.go('/teacher'); } catch (x) { tErr.textContent = x.message || String(x); }
   };
   const tForm = h('form.teacher-form', { onsubmit: tSubmit, hidden: true },
-    h('div.teacher-row', tPass, h('button.btn.sm.primary', { type: 'submit' }, icon('user', { size: 13 }), 'Đăng nhập')), tErr);
+    h('div.teacher-row', tPass, h('button.btn.sm.primary', { type: 'submit' }, icon('user', { size: 13 }), t('login.submit'))), tErr);
   const tToggle = h('button.btn.sm.ghost', { type: 'button', onclick: async () => {
     if (!PUBLIC_MODE && !(await loadTeacherConfig())) { try { await api.loginTeacher(); router.go('/teacher'); } catch (x) { tErr.textContent = x.message; tForm.hidden = false; } return; }
     tForm.hidden = !tForm.hidden; if (!tForm.hidden) tPass.focus();
-  } }, icon('user', { size: 13 }), 'Dành cho giảng viên');
+  } }, icon('user', { size: 13 }), t('login.forTeacher'));
   const teacherBox = h('div.teacher-entry', h('div.teacher-head', tToggle), tForm);
 
   const el = h('div.login-page',
@@ -113,5 +117,8 @@ export async function loginPage() {
       seg, regForm, loginForm,
       h('p.muted.small.demo', icon('info', { size: 14 }), h('span', t('login.note'))),
       teacherBox)));
-  return { el };
+  return {
+    el,
+    dispose: (o) => (o?.relang ? { login: { mode, name: rName.value, classId: rClass.value, mssv: rMssv.value, lmssv: lMssv.value } } : undefined),
+  };
 }

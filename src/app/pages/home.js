@@ -1,6 +1,6 @@
 // Trang chủ sinh viên: lớp, tiến độ, danh sách lab theo phần, trạng thái.
 import { h } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, fmtDate } from '../i18n.js';
 import { api } from '../mockApi.js';
 import { PARTS, MACHINE_TITLES } from '../course.js';
 import { icon } from '../components/icons.js';
@@ -35,7 +35,7 @@ export async function homePage(_, { user }) {
       h('div.lab-card-top', h('span.lab-id', l.id), l.machineId ? h('span.badge.info', MACHINE_TITLES[l.machineId]) : h('span.badge', t('home.soon')), h('span.spacer'),
         !l.open ? h('span.badge', icon('lock', { size: 12 }), t('home.locked')) : h('span.badge', { class: cls2 }, t(key), l.score !== null && l.score !== undefined ? ` · ${l.score}/${l.max}` : '')),
       h('div.lab-title', l.title),
-      h('div.lab-meta.muted.small', `${t('home.week')} ${l.week}`, ' · ', '★'.repeat(l.level) , l.due && l.open ? ` · ${t('home.due')} ${new Date(l.due).toLocaleDateString('vi-VN')}` : '', labMinutes(meta, LECTURES) ? ` · ${labMinutes(meta, LECTURES)} ${t('guide.min')}` : ''),
+      h('div.lab-meta.muted.small', `${t('home.week')} ${l.week}`, ' · ', '★'.repeat(l.level) , l.due && l.open ? ` · ${t('home.due')} ${fmtDate(l.due)}` : '', labMinutes(meta, LECTURES) ? ` · ${labMinutes(meta, LECTURES)} ${t('guide.min')}` : ''),
     ];
     return usable ? h('a.lab-card', { href: '#/lab/' + l.id, class: 'st-' + l.status }, inner) : h('div.lab-card.disabled', { 'aria-disabled': 'true' }, inner);
   };

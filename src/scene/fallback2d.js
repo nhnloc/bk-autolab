@@ -1,12 +1,14 @@
 // Dự phòng khi máy không có WebGL: sơ đồ nhìn từ trên (canvas 2D) — vật liệu, vị trí cơ cấu, LED cảm biến.
 import { loadManifest } from './viewer.js';
 import { PLACEHOLDER, NODE_DEFS } from './nodes.js';
+import { t } from '../app/i18n.js';
+import { trText } from '../app/loc.js';
 
 export class Fallback2D {
   constructor(container, { machineId } = {}) {
     this.container = container; this.machineId = machineId; this.source = null; this.isPlaceholder = false; this.disposed = false;
     this.canvas = document.createElement('canvas'); this.canvas.className = 'viewer-canvas';
-    this.canvas.setAttribute('role', 'img'); this.canvas.setAttribute('aria-label', 'Sơ đồ 2D của máy (không có WebGL)');
+    this.canvas.setAttribute('role', 'img'); this.canvas.setAttribute('aria-label', t('mv.aria2d'));
     container.appendChild(this.canvas);
     this.box = [[-100, -700], [1600, 900]];
     this._loop = this._loop.bind(this); this._raf = requestAnimationFrame(this._loop);
@@ -43,7 +45,7 @@ export class Fallback2D {
     g.strokeStyle = dark ? '#3a4652' : '#c3cbd3'; g.lineWidth = 1;
     for (let gx = Math.ceil(x0 / 500) * 500; gx < x1; gx += 500) { g.beginPath(); g.moveTo(X(gx), Y(y0)); g.lineTo(X(gx), Y(y1)); g.stroke(); }
     g.fillStyle = dark ? '#9aa8b5' : '#5b6876'; g.font = '12px system-ui';
-    g.fillText('Không có WebGL — sơ đồ nhìn từ trên (mm). Hãy bật tăng tốc phần cứng để xem 3D.', 10, 18);
+    g.fillText(t('mv.no3d'), 10, 18);
     // khối máy (placeholder, nhìn từ trên; node tịnh tiến theo parts)
     const defs = { ...(NODE_DEFS[this.machineId] || {}), ...(this.nodes || {}) };
     const spec = [...(PLACEHOLDER[this.machineId] || [])].filter((p) => p.b).sort((a, b) => Math.max(a.b[2], a.b[5]) - Math.max(b.b[2], b.b[5]));
@@ -100,10 +102,31 @@ export class Fallback2D {
       g.font = 'bold 20px ui-monospace, monospace'; const tw = Math.max(g.measureText('8'.repeat(d.digits || 4)).width, g.measureText(txt).width) + 16;
       g.fillStyle = '#0b0b0b'; g.fillRect(dx - tw, 28, tw, 32);
       g.fillStyle = '#ff3b30'; g.fillText(txt, dx - 8, 51);
-      g.font = '11px system-ui'; g.fillStyle = dark ? '#dbe3ea' : '#1c2631'; g.fillText(`${d.label || d.id}${d.unit ? ' (' + d.unit + ')' : ''}`, dx, 72);
+      g.font = '11px system-ui'; g.fillStyle = dark ? '#dbe3ea' : '#1c2631'; g.fillText(`${trText(d.label) || d.id}${d.unit ? ' (' + trText(d.unit) + ')' : ''}`, dx, 72);
       dx -= tw + 14; if (dx < 120) break;
     }
     g.textAlign = 'left';
+    this.drawEffects(g, w, h, v.effects);
+  }
+  /** Sự cố trên sơ đồ 2D: chớp viền đỏ + ⚡ khi ngắn mạch, chấm cam khi có tia lửa/khói. */
+  drawEffects(g, w, h, effects = []) {
+    let flash = 0, bolt = false, spark = false, heat = 0;
+    for (const e of effects) {
+      if (e.type === 'impact') flash = Math.max(flash, 1 - e.age);
+      if (e.type === 'breaker') { flash = Math.max(flash, (1 - e.age) * 0.8); bolt ||= e.age < 0.6; }
+      if ((e.type === 'spark' || e.type === 'smoke' || e.type === 'steam') && e.age < 1) spark = true;
+      if (e.type === 'heat') heat = Math.max(heat, e.intensity || 0);
+    }
+    const t = performance.now() / 1000;
+    if (flash > 0) {
+      const a = (0.55 + 0.45 * Math.sin(t * 18)) * flash * 0.6;
+      const grd = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.7);
+      grd.addColorStop(0, 'rgba(255,40,20,0)'); grd.addColorStop(1, `rgba(255,40,20,${a.toFixed(3)})`);
+      g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    }
+    if (bolt) { g.font = '36px system-ui'; g.textAlign = 'center'; g.fillText('⚡', w / 2, 44); }
+    if (spark) { g.fillStyle = `rgba(255,170,40,${(0.5 + 0.5 * Math.sin(t * 25)).toFixed(2)})`; for (let i = 0; i < 12; i++) { g.beginPath(); g.arc(w - 40 + Math.cos(i + t * 9) * 14, 40 + Math.sin(i * 1.7 + t * 11) * 14, 2.5, 0, 7); g.fill(); } }
+    if (heat > 0) { g.fillStyle = `rgba(255,60,0,${(0.12 * heat).toFixed(3)})`; g.fillRect(0, 0, w, h); }
   }
   dispose() { this.disposed = true; cancelAnimationFrame(this._raf); this.canvas.remove(); }
 }

@@ -25,9 +25,9 @@ export async function teacherPage(_, { user }) {
         h('div.row.class-stats', h('span.badge.info', t('teacher.students', { n: c.studentCount })), h('span.spacer'), h('span.link-more', t('teacher.open'), icon('chevronR', { size: 14 }))))))),
     h('h2.section-h', t('teacher.labs')),
     h('div.card', h('table.table',
-      h('thead', h('tr', h('th', 'Lab'), h('th', t('teacher.labTitle')), h('th', t('teacher.machine')), h('th', t('teacher.week')), h('th', ''))),
+      h('thead', h('tr', h('th', t('common.lab')), h('th', t('teacher.labTitle')), h('th', t('teacher.machine')), h('th', t('teacher.week')), h('th', ''))),
       h('tbody', machineLabs.map((l) => h('tr', h('td.mono', l.id), h('td', l.title), h('td', MACHINE_TITLES[l.machineId] || l.machineId), h('td', String(l.week ?? '')),
-        h('td', PUBLIC_MODE ? h('span.muted.small', 'Lời giải chỉ xem trên máy') : h('a.btn.sm', { href: `#/teacher/solution/${l.id}`, title: t('teacher.solutionTip') }, icon('eye', { size: 14 }), t('teacher.solution')))))))),
+        h('td', PUBLIC_MODE ? h('span.muted.small', t('teacher.solutionLocal')) : h('a.btn.sm', { href: `#/teacher/solution/${l.id}`, title: t('teacher.solutionTip') }, icon('eye', { size: 14 }), t('teacher.solution')))))))),
   );
   return { el };
 }

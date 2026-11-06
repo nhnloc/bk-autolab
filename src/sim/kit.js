@@ -136,7 +136,7 @@ export class Machine {
     if (m && this.cyl[m[1]]) this.cyl[m[1]].fault[m[2]] = on;
   }
   reset() {
-    this.items = []; this.events = []; this.crashed = null;
+    this.items = []; this.events = []; this.crashed = null; this._fx = [];
     this.stats = { produced: 0, rejected: 0, defects: 0, crashes: 0, cycleTimeMs: 0 };
     for (const c of Object.values(this.cyl || {})) c.reset();
     for (const d of Object.values(this.drives || {})) d.reset();
@@ -159,8 +159,16 @@ export class Machine {
     this.events.push({ t: this.time, message, level });
     if (this.events.length > 200) this.events.shift();
   }
+  /** Hiệu ứng trực quan (minh họa hậu quả): type spark|smoke|steam|impact|breaker; at = tên node 3D hoặc null. */
+  effect(type, at = null, ms = 2500, intensity = 1) {
+    (this._fx ||= []).push({ id: (this._fxId = (this._fxId || 0) + 1), type, at, t0: this.time, ms, intensity });
+    if (this._fx.length > 40) this._fx.shift();
+  }
+  /** Hiệu ứng liên tục theo trạng thái (vd. động cơ nóng) — lớp con ghi đè. */
+  fxState() { return []; }
   crash(message) {
     if (this.crashed) return;
+    this.effect('impact', this.crashAt || null, 1600, 1);
     this.crashed = { message, t: this.time };
     this.stats.crashes++;
     this.log('VA CHẠM: ' + message, 'error');
@@ -227,6 +235,10 @@ export class Machine {
       belts: this.beltOffsets ? this.beltOffsets() : {},
       crashed: this.crashed,
       lamps: { run: !!this.outputs.H_Run, fault: !!this.outputs.H_Fault },
+      effects: [
+        ...(this._fx || []).filter((f) => this.time - f.t0 < f.ms).map((f) => ({ id: f.id, type: f.type, at: f.at, intensity: f.intensity, age: (this.time - f.t0) / f.ms })),
+        ...this.fxState(),
+      ],
       outs: Object.fromEntries(this.def.ioMap.outputs.filter((o) => !o.type || o.type === 'Bool').map((o) => [o.tag, !!this.outputs[o.tag]])),
     };
   }

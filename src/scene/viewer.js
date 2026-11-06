@@ -6,7 +6,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { NODE_DEFS } from './nodes.js';
 import { buildPlaceholder } from './placeholder.js';
 import { ItemLayer } from './items.js';
+import { EffectsLayer } from './effects.js';
 import { drawSeg } from './seg7.js';
+import { t } from '../app/i18n.js';
 
 let manifestP = null;
 export function loadManifest() {
@@ -39,7 +41,7 @@ export class MachineViewer {
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.localClippingEnabled = true; // node có clipAboveZFC / clipZ (vd. cửa cuốn cuộn lên lô)
     r.domElement.className = 'viewer-canvas';
-    r.domElement.setAttribute('aria-label', 'Mô hình 3D của máy');
+    r.domElement.setAttribute('aria-label', t('mv.aria3d'));
     r.domElement.setAttribute('role', 'img');
     container.appendChild(r.domElement);
 
@@ -60,6 +62,7 @@ export class MachineViewer {
 
     this.machine = new THREE.Group(); s.add(this.machine);
     this.items = new ItemLayer(s);
+    this.fx = new EffectsLayer(s, container, (n) => this.machine.getObjectByName(n));
     this.bindings = []; this.belts = []; this.leds = new Map(); this.lamps = {};
     this.outLamps = new Map(); this.nodesByName = new Map(); this.buttons = new Map(); this.btnDefs = new Map(); this.displays3d = [];
     this.applyTheme();
@@ -87,7 +90,7 @@ export class MachineViewer {
       try {
         const gltf = await new GLTFLoader().loadAsync('assets/models/' + entry.file);
         root = gltf.scene;
-      } catch (e) { console.info('[viewer] không nạp được GLB, dùng placeholder:', e?.message || e); }
+      } catch (e) { console.info('[viewer] cannot load GLB, using placeholder:', e?.message || e); }
     }
     if (this.disposed) return;
     if (!root) { root = buildPlaceholder(this.machineId); this.isPlaceholder = true; }
@@ -381,6 +384,7 @@ export class MachineViewer {
       });
     }
     this.items.update(v.items || []);
+    this.fx.update(v.effects || []);
   }
 
   resize() {
@@ -404,6 +408,7 @@ export class MachineViewer {
     cancelAnimationFrame(this._raf);
     this._ro.disconnect();
     this._offPick?.();
+    this.fx.dispose();
     this.controls.dispose();
     this.scene.traverse((o) => { if (o.isMesh) { o.geometry?.dispose(); } });
     this.displays3d.forEach((D) => D.tex.dispose());

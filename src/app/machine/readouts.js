@@ -2,6 +2,7 @@
 import { h, svg } from '../dom.js';
 import { t } from '../i18n.js';
 import { storage } from '../store.js';
+import { trText } from '../loc.js';
 
 /* ---------------- LED 7 đoạn ---------------- */
 import { SEG, CHARS, formatSeg } from '../../scene/seg7.js';
@@ -23,7 +24,7 @@ export function createSegDisplay(d) {
   const val = h('span.seg-sr', { 'aria-live': 'off' });
   const unit = h('span.seg-unit');
   const lbl = h('span.seg-label');
-  const el = h('div.seg-wrap', { title: d.label || d.id },
+  const el = h('div.seg-wrap', { title: trText(d.label) || d.id },
     h('div.seg-face', digits.map((x) => x.el), unit), lbl, val);
   let last = null;
   return {
@@ -31,9 +32,10 @@ export function createSegDisplay(d) {
     set(x) {
       const key = `${x.value}|${x.unit}|${x.label}`; if (key === last) return; last = key;
       formatSeg(x.value, n).forEach((c, i) => digits[i].set(c.ch, c.dot));
-      unit.textContent = x.unit || ''; unit.hidden = !x.unit;
-      lbl.textContent = x.label || x.id || '';
-      val.textContent = `${x.label || x.id}: ${x.value ?? ''} ${x.unit || ''}`;
+      const label = trText(x.label) || x.id || '', u = trText(x.unit) || '';
+      unit.textContent = u; unit.hidden = !u;
+      lbl.textContent = label;
+      val.textContent = `${label}: ${x.value ?? ''} ${u}`;
     },
   };
 }
@@ -85,8 +87,9 @@ export function createTrend() {
     if (sig !== legSig) {
       legSig = sig; chips.clear();
       legend.replaceChildren(...tr.series.map((s) => {
-        const v = h('b.mono'); const c = h('span.trend-chip', { title: `${s.label} (0–${s.max} ${s.unit || ''})` },
-          h('i', { style: { background: s.color } }), h('span', s.label), v, h('span.muted', s.unit || ''));
+        const lb = trText(s.label) || s.id, u = trText(s.unit) || '';
+        const v = h('b.mono'); const c = h('span.trend-chip', { title: `${lb} (0–${s.max} ${u})` },
+          h('i', { style: { background: s.color } }), h('span', lb), v, h('span.muted', u));
         chips.set(s.id, v); return c;
       }));
     }
