@@ -1,31 +1,93 @@
-// Đăng nhập (mock): chọn vai trò Sinh viên / Giảng viên.
+// Đăng ký / Đăng nhập sinh viên (không mật khẩu — trang luyện tập). Giảng viên: chỉ khi chạy trên máy.
 import { h } from '../dom.js';
 import { PUBLIC_MODE } from '../config.js';
 import { t } from '../i18n.js';
-import { api } from '../mockApi.js';
+import { api, MSSV_RE, normMssv, normName } from '../mockApi.js';
+import { loadClasses } from '../classes.js';
 import { router } from '../router.js';
 import { icon } from '../components/icons.js';
+import { toast } from '../components/ui.js';
 
 export async function loginPage() {
-  let role = 'student';
-  const user = h('input.input#lg-user', { autocomplete: 'username', required: true, placeholder: '20210101' });
-  const pass = h('input.input#lg-pass', { type: 'password', autocomplete: 'current-password', required: true });
-  const err = h('div.err-text.small', { role: 'alert' });
-  const seg = h('div.seg', { role: 'radiogroup', 'aria-label': t('login.role') },
-    ...[['student', t('role.student')], ...(PUBLIC_MODE ? [] : [['teacher', t('role.teacher')]])].map(([id, l]) => h('button.seg-btn', { type: 'button', role: 'radio', 'aria-checked': String(id === role), dataset: { id },
-      onclick: () => { role = id; seg.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.id === role))); user.placeholder = role === 'teacher' ? 'gv.tranminh' : '20210101'; } }, l)));
-  const btn = h('button.btn.primary.wide', { type: 'submit' }, t('login.submit'));
-  const form = h('form.login-form', { onsubmit: async (e) => {
-    e.preventDefault(); err.textContent = ''; btn.disabled = true;
-    try { await api.login({ username: user.value.trim(), password: pass.value, role }); router.go(role === 'teacher' ? '/teacher' : '/home'); }
-    catch (ex) { err.textContent = ex.message; }
-    finally { btn.disabled = false; }
+  let mode = api.localStudentCount() ? 'login' : 'register';
+
+  /* ---------- Đăng ký ---------- */
+  const rName = h('input.input#rg-name', { autocomplete: 'name', maxlength: 80, placeholder: 'Nguyễn Văn An', required: true });
+  const rClass = h('select.select#rg-class', { required: true, disabled: true }, h('option', { value: '' }, t('common.loading')));
+  const rMssv = h('input.input#rg-mssv', { inputmode: 'numeric', autocomplete: 'off', maxlength: 14, placeholder: '2210123', required: true });
+  const rClassMsg = h('div.small.field-msg');
+  const rErr = h('div.err-text.small', { role: 'alert' });
+  const rBtn = h('button.btn.primary.wide', { type: 'submit' }, t('reg.submit'));
+  const fieldErr = (input, msg) => { input.classList.toggle('invalid', !!msg); input.setAttribute('aria-invalid', String(!!msg)); };
+
+  async function fillClasses() {
+    rClass.disabled = true; rClassMsg.replaceChildren();
+    try {
+      const list = await loadClasses({ force: true });
+      if (!list.length) throw new Error(t('reg.noClasses'));
+      rClass.replaceChildren(h('option', { value: '' }, t('reg.pickClass')), ...list.map((c) => h('option', { value: c.id }, c.term ? `${c.name} (${c.term})` : c.name)));
+      if (list.length === 1) rClass.value = list[0].id;
+      rClass.disabled = false; rBtn.disabled = false;
+    } catch (e) {
+      rClass.replaceChildren(h('option', { value: '' }, '—'));
+      rBtn.disabled = true;
+      rClassMsg.replaceChildren(h('span.err-text', icon('warn', { size: 13 }), ' ', e.message, ' '),
+        h('button.btn.ghost.sm', { type: 'button', onclick: fillClasses }, icon('reset', { size: 12 }), t('reg.retry')));
+    }
+  }
+
+  const regForm = h('form.login-form', { novalidate: true, onsubmit: async (e) => {
+    e.preventDefault(); rErr.textContent = '';
+    const nm = normName(rName.value), ms = normMssv(rMssv.value);
+    fieldErr(rName, nm.length < 2); fieldErr(rClass, !rClass.value); fieldErr(rMssv, !MSSV_RE.test(ms));
+    if (nm.length < 2) { rErr.textContent = t('reg.errName'); rName.focus(); return; }
+    if (!rClass.value) { rErr.textContent = t('reg.errClass'); rClass.focus(); return; }
+    if (!MSSV_RE.test(ms)) { rErr.textContent = t('reg.errMssv'); rMssv.focus(); return; }
+    rBtn.disabled = true;
+    try {
+      const { restored } = await api.register({ name: nm, classId: rClass.value, mssv: ms });
+      if (restored) toast(t('reg.restored'), 'ok', 4000);
+      router.go('/home');
+    } catch (ex) { rErr.textContent = ex.message; } finally { rBtn.disabled = false; }
   } },
-    h('label.field', h('span', t('login.role')), seg),
-    h('label.field', { for: 'lg-user' }, h('span', t('login.user')), user),
-    h('label.field', { for: 'lg-pass' }, h('span', t('login.pass')), pass),
-    err, btn,
-    h('p.muted.small.demo', icon('info', { size: 14 }), t('login.demo')));
+    h('label.field', { for: 'rg-name' }, h('span', t('reg.name')), rName),
+    h('label.field', { for: 'rg-class' }, h('span', t('reg.class')), rClass, rClassMsg),
+    h('label.field', { for: 'rg-mssv' }, h('span', t('reg.mssv')), rMssv, h('small.muted', t('reg.mssvHint'))),
+    rErr, rBtn);
+  rMssv.addEventListener('input', () => fieldErr(rMssv, false));
+  rName.addEventListener('input', () => fieldErr(rName, false));
+  rClass.addEventListener('change', () => fieldErr(rClass, false));
+
+  /* ---------- Đăng nhập ---------- */
+  const lMssv = h('input.input#lg-mssv', { inputmode: 'numeric', autocomplete: 'username', maxlength: 14, placeholder: '2210123', required: true });
+  const lErr = h('div.err-text.small', { role: 'alert' });
+  const lBtn = h('button.btn.primary.wide', { type: 'submit' }, t('login.submit'));
+  const loginForm = h('form.login-form', { novalidate: true, onsubmit: async (e) => {
+    e.preventDefault(); lErr.textContent = ''; lBtn.disabled = true;
+    try { await api.loginStudent({ mssv: lMssv.value }); router.go('/home'); }
+    catch (ex) { lErr.textContent = ex.message; fieldErr(lMssv, true); }
+    finally { lBtn.disabled = false; }
+  } },
+    h('label.field', { for: 'lg-mssv' }, h('span', t('reg.mssv')), lMssv),
+    lErr, lBtn);
+  lMssv.addEventListener('input', () => fieldErr(lMssv, false));
+
+  /* ---------- Chuyển tab ---------- */
+  const seg = h('div.seg.seg-full', { role: 'tablist', 'aria-label': t('login.title') },
+    ...[['register', t('reg.tab')], ['login', t('login.tab')]].map(([id, l]) => h('button.seg-btn', { type: 'button', role: 'tab', dataset: { id }, onclick: () => setMode(id) }, l)));
+  function setMode(m) {
+    mode = m;
+    seg.querySelectorAll('.seg-btn').forEach((b) => { b.setAttribute('aria-selected', String(b.dataset.id === m)); b.setAttribute('aria-pressed', String(b.dataset.id === m)); });
+    regForm.hidden = m !== 'register'; loginForm.hidden = m !== 'login';
+    setTimeout(() => (m === 'register' ? rName : lMssv).focus(), 0);
+  }
+  setMode(mode);
+  fillClasses();
+
+  const teacherBox = PUBLIC_MODE ? null : h('div.teacher-entry',
+    h('span.muted.small', t('login.teacherLocal')),
+    h('button.btn.sm', { type: 'button', onclick: async () => { await api.loginTeacher(); router.go('/teacher'); } }, icon('user', { size: 13 }), t('login.teacherBtn')));
+
   const el = h('div.login-page',
     h('div.login-hero',
       h('div.hero-mark', icon('bolt', { size: 40 })),
@@ -33,7 +95,10 @@ export async function loginPage() {
       h('p', t('login.hero')),
       h('ul.hero-list', [t('login.f1'), t('login.f2'), t('login.f3'), t('login.f4')].map((x) => h('li', icon('check', { size: 15 }), x))),
       h('p.small.hero-legal', t('app.legal'))),
-    h('div.login-card.card', h('div.card-b', h('h2', t('login.title')), h('p.muted', t('login.sub')), form)));
-  setTimeout(() => user.focus(), 0);
+    h('div.login-card.card', h('div.card-b',
+      h('h2', t('login.title')),
+      seg, regForm, loginForm,
+      h('p.muted.small.demo', icon('info', { size: 14 }), h('span', t('login.note'))),
+      teacherBox)));
   return { el };
 }

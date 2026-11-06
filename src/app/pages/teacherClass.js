@@ -5,6 +5,7 @@ import { api } from '../mockApi.js';
 import { icon } from '../components/icons.js';
 import { tabBar, toast } from '../components/ui.js';
 import { MACHINE_TITLES } from '../course.js';
+import { localNote } from './teacher.js';
 import { loadEngine } from '../engine.js';
 import { getLabs, createSession, starterFor } from '../labSession.js';
 import { createMachineView } from '../machine/machineView.js';
@@ -33,6 +34,7 @@ export async function classPage({ id }) {
   /* ---------- Sổ điểm ---------- */
   async function gradebook() {
     const gb = await api.getGradebook(id);
+    if (!gb.students.length) return h('div.card', h('div.empty', t('cls.noStudents')));
     const cols = gb.labs.filter((l) => gb.schedule[l.id]?.open);
     const avg = (sid) => { const g = Object.values(gb.grades[sid] || {}); return g.length ? Math.round(g.reduce((a, x) => a + (x.score / x.max) * 10, 0) / g.length * 10) / 10 : null; };
     const exportCsv = () => {
@@ -79,6 +81,7 @@ export async function classPage({ id }) {
 
   /* ---------- Cài lỗi ---------- */
   async function faultsTab() {
+    if (!cls.students.length) return { el: h('div.card', h('div.empty', t('cls.noStudents'))), dispose: () => {} };
     const mlabs = labs.filter((l) => l.machineId);
     let sid = cls.students[0]?.id, lid = mlabs.find((l) => l.machineId)?.id;
     const stuSel = h('select.select', { 'aria-label': t('cls.student'), onchange: (e) => { sid = e.target.value; build(); } }, cls.students.map((s) => h('option', { value: s.id }, `${s.mssv || s.username} — ${s.name}`)));
@@ -125,14 +128,15 @@ export async function classPage({ id }) {
 
   /* ---------- Sinh viên ---------- */
   function studentsTab() {
+    if (!cls.students.length) return h('div.card', h('div.empty', t('cls.noStudents')));
     return h('div.card', h('table.table',
-      h('thead', h('tr', h('th', '#'), h('th', 'MSSV'), h('th', t('cls.name')))),
-      h('tbody', cls.students.map((s, i) => h('tr', h('td', String(i + 1)), h('td.mono', s.mssv || s.username), h('td', s.name))))));
+      h('thead', h('tr', h('th', '#'), h('th', 'MSSV'), h('th', t('cls.name')), h('th', t('cls.registered')))),
+      h('tbody', cls.students.map((s, i) => h('tr', h('td', String(i + 1)), h('td.mono', s.mssv || s.username), h('td', s.name), h('td.muted.small', s.createdAt ? new Date(s.createdAt).toLocaleString('vi-VN') : '—'))))));
   }
 
   const el = h('div.container.wide',
-    h('div.home-head', h('div', h('a.small', { href: '#/teacher' }, '← ' + t('nav.classes')), h('h1', cls.name), h('p.muted', `${cls.course} · ${cls.term} · ${t('teacher.students', { n: cls.students.length })}`))),
-    bar, host);
+    h('div.home-head', h('div', h('a.small', { href: '#/teacher' }, '← ' + t('nav.classes')), h('h1', cls.name), h('p.muted', [cls.id, cls.term, t('teacher.students', { n: cls.students.length })].filter(Boolean).join(' · ')))),
+    localNote(), bar, host);
   render();
   return { el, dispose: () => cleanup?.() };
 }

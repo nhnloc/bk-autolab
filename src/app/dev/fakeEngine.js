@@ -2,6 +2,7 @@
 // Chỉ dùng khi src/plc, src/sim, src/labs chưa nạp được (xem src/app/engine.js).
 // PLC giả có trình thông dịch LAD tối giản (tiếp điểm, coil, timer, counter, so sánh, MOVE, toán) để thử UI thật sự.
 import { FAKE_DEFS } from './fakeDefs.js';
+import { P1_MACHINES, gradeTrainerShim } from './fakeP1.js';
 
 /* =========================== Tiện ích giá trị =========================== */
 
@@ -382,8 +383,11 @@ class FakeMachine {
   }
 }
 
-export function createMachine(id) { return new FakeMachine(id); }
-export const MACHINES = Object.fromEntries(Object.entries(FAKE_DEFS).map(([id, d]) => [id, { id, title: d.title }]));
+export function createMachine(id) { return P1_MACHINES[id] ? new P1_MACHINES[id]() : new FakeMachine(id); }
+export const MACHINES = Object.fromEntries([
+  ...Object.entries(FAKE_DEFS).map(([id, d]) => [id, { id, title: d.title }]),
+  ...Object.keys(P1_MACHINES).map((id) => [id, new P1_MACHINES[id]().def]),
+]);
 
 /* =========================== LABS giả =========================== */
 
@@ -418,11 +422,16 @@ function finish(crit) {
 
 const mk = (id, machineId, objectives, steps) => ({
   id, machineId, objectives, steps,
-  summary: `Lab mẫu (shim) cho máy “${FAKE_DEFS[machineId].title}”. Nội dung thật sẽ do src/labs cung cấp.`,
+  summary: `Lab mẫu (shim) cho máy “${MACHINES[machineId].title}”. Nội dung thật sẽ do src/labs cung cấp.`,
   allowInputOverride: true,
   grade: (project, eng) => genericGrade(project, eng, machineId),
 });
 export const LABS = [
+  { ...mk('L01', 'trainer', ['Làm quen bàn thực hành: nút NO/NC, công tắc xoay, cảm biến tiệm cận và quang', 'Viết mạch tự giữ đầu tiên'], ['S1 bật H1 tự giữ, S3 (NC) tắt.', 'PRX = 1 → H3 sáng; PE = 1 → còi BUZ.']),
+    grade: (project, eng) => gradeTrainerShim(project, eng) },
+  mk('L02', 'motor', ['Mạch đảo chiều có khóa liên động', 'Công tắc hành trình, cảm biến an toàn'], ['Lên/Xuống tự giữ, dừng ở hành trình.', 'Không bao giờ đóng KM1 và KM2 cùng lúc.']),
+  mk('L03', 'stardelta', ['Timer TON cho khởi động sao–tam giác', 'Đọc analog áp suất'], ['KM1+KM2 (sao) 5 s rồi KM1+KM3 (tam giác).', 'Ngắt khi PS = 0.']),
+  mk('L04', 'counter', ['Bộ đếm CTU, so sánh, MOVE ra bảng LED'], ['Đếm B1, đủ 6 sản phẩm thì đổi thùng.', 'MOVE số đếm ra %QW80.']),
   mk('L07', 'feeder', ['Hiểu nguyên lý cấp phôi bằng xi lanh đẩy + xi lanh chặn', 'Viết mạch tự giữ Start/Stop, E-Stop', 'Viết trình tự 2A+ 1A+ 1A− 2A− có giám sát timeout'],
     ['Khai báo tag theo bảng I/O (đã tạo sẵn).', 'Network 1: mạch tự giữ "Run" bằng Start/Stop/EStop.', 'Network 2: khi "Run" và B5 = 0, cấp phôi: 2A chặn, 1A đẩy, 1A lùi, 2A nhả.', 'Biên dịch, nạp xuống, RUN và quan sát máy.']),
   mk('L09', 'diverter', ['Điều khiển băng tải và 3 xi lanh gạt', 'Chia thùng luân phiên vào 3 làn', 'Dùng thanh ghi dịch theo dõi vị trí thùng'],

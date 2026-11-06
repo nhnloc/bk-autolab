@@ -17,6 +17,23 @@ export async function gradeLab(lab, project, { onProgress } = {}) {
 
   const m = createMachine(lab.machineId);
   plc.attach(m);
+  if (g.scenario) {
+    let runtimeError2 = null;
+    plc.on('error', (e) => { runtimeError2 = e; });
+    plc.start();
+    const run = async (ms) => { for (let t = 0; t < ms; t += 500) { plc.runFor(Math.min(500, ms - t)); if (typeof window !== 'undefined') await new Promise((r) => setTimeout(r, 0)); } };
+    const ctx = {
+      m, plc, run, add,
+      set: (id, on) => { const b = m.def.buttons.find((x) => x.id === id); if (b && (b.kind === 'latching' || b.kind === 'selector')) { if (!!m.panel[id] !== !!on) m.press(id, true); } else m.press(id, !!on); },
+      press: async (id, ms = 200) => { m.press(id, true); await run(ms); m.press(id, false); },
+      out: (tag) => m.outputs[tag],
+      error: () => runtimeError2,
+    };
+    await g.scenario(ctx);
+    if (onProgress) onProgress(1);
+    plc.stop();
+    return finish(m);
+  }
   let runtimeError = null;
   plc.on('error', (e) => { runtimeError = e; });
   plc.start();
@@ -36,7 +53,11 @@ export async function gradeLab(lab, project, { onProgress } = {}) {
   const idleOk = !m.outputs.H_Run;
   // 2. Start → chạy
   await press('Start');
-  await run(g.runMs);
+  const samples = { total: 0, bad: 0, last: '' };
+  if (g.sample) {
+    const step = 200;
+    for (let t = 0; t < g.runMs; t += step) { await run(step); const r = g.sample(m); if (r !== undefined) { samples.total++; if (r !== true) { samples.bad++; samples.last = r; } } }
+  } else await run(g.runMs);
   const s = { ...m.stats };
   const good = s.produced;
   add('runs', 'Máy tự chạy sau khi nhấn Start', 10, idleOk && good > 0, idleOk ? '' : 'H_Run sáng trước khi nhấn Start');
@@ -53,6 +74,7 @@ export async function gradeLab(lab, project, { onProgress } = {}) {
   add('quality', 'Không có sản phẩm lỗi', 15, ran && s.defects === 0 && (g.maxWrongLane === undefined || (s.wrongLane || 0) <= g.maxWrongLane),
     [s.defects ? `Lỗi: ${s.defects}` : '', s.wrongLane ? `Sai làn: ${s.wrongLane}` : '', ...m.events.filter((e) => e.level === 'warn').slice(-2).map((e) => e.message)].filter(Boolean).join('\n'));
 
+  if (g.sample) add('sample', g.sampleLabel, 10, ran && samples.total > 0 && samples.bad / samples.total < 0.05, samples.bad ? `Sai ${samples.bad}/${samples.total} lần lấy mẫu. Ví dụ: ${samples.last}` : '');
   // 3. Dừng khẩn
   m.press('EStop', true);
   await run(60);
@@ -72,8 +94,9 @@ export async function gradeLab(lab, project, { onProgress } = {}) {
   return finish(m);
 
   function finish(machine) {
-    const score = checks.reduce((a, c) => a + c.points, 0);
-    const max = 100;
+    let score = checks.reduce((a, c) => a + c.points, 0);
+    let max = checks.reduce((a, c) => a + c.max, 0) || 100;
+    if (max !== 100) { score = Math.round((score / max) * 100); max = 100; }
     return { score, max, checks, stats: machine ? machine.stats : null, log: machine ? machine.events.slice(-30) : [] };
   }
 }

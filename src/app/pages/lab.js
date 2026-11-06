@@ -11,10 +11,11 @@ import { createStudio } from '../studio/studio.js';
 import { createMachineView } from '../machine/machineView.js';
 import { createHmi } from '../machine/hmi.js';
 import { createGuidePanel } from '../machine/guidePanel.js';
+import { loadLectures, lectureFor, hasSeenLab, markSeenLab } from '../lectures.js';
 import { createResultsPanel } from '../machine/resultsPanel.js';
 
 export async function labPage({ id }, { user }) {
-  const [eng, lab, labsMeta] = await Promise.all([loadEngine(), getLab(id), api.listLabs(user.classId)]);
+  const [eng, lab, labsMeta, LECTURES] = await Promise.all([loadEngine(), getLab(id), api.listLabs(user.classId), loadLectures()]);
   if (!lab || !lab.machineId) throw new Error(t('lab.notFound', { id }));
   const meta = labsMeta.find((l) => l.id === id);
   if (meta && !meta.open) throw new Error(t('lab.locked'));
@@ -29,7 +30,7 @@ export async function labPage({ id }, { user }) {
 
   /* ---------- Studio ---------- */
   const saveState = h('span.save-state.muted.small');
-  const autosave = debounce((p) => { api.saveProject(id, p).then(() => { saveState.textContent = t('lab.saved', { time: new Date().toLocaleTimeString('vi-VN') }); }); }, 800);
+  const autosave = debounce((p) => { api.saveProject(id, p).then(() => { saveState.textContent = t('lab.saved', { time: new Date().toLocaleTimeString('vi-VN') }); }).catch((e) => console.warn('[lab] không lưu được:', e?.message || e)); }, 800);
   const studio = createStudio({ project, getPlc: () => plc, onChange: (p) => { saveState.textContent = t('lab.saving'); autosave(p); } });
   disposers.push(() => { autosave.flush(studio.project); studio.dispose(); });
   if (!saved) api.saveProject(id, project);
@@ -142,11 +143,28 @@ export async function labPage({ id }, { user }) {
   }
   disposers.push(() => hmi?.dispose());
 
-  const guideOpen = storage.get('bk.lab.guide', window.innerWidth >= 1600);
-  const guide = createGuidePanel({ lab, def, onCollapse: () => toggleGuide(false) });
+  // Lần đầu mở lab (có bài giảng) → tab Bài giảng, mở sẵn ô hướng dẫn; các lần sau → tab Nhiệm vụ.
+  const lecture = lectureFor(LECTURES, lab);
+  const firstVisit = !!lecture && !hasSeenLab(user.id, lab.id);
+  markSeenLab(user.id, lab.id);
+  let body = null;
+  const guideOpen = firstVisit || storage.get('bk.lab.guide', window.innerWidth >= 1600);
+  const guide = createGuidePanel({
+    lab, def, lecture, userId: user.id, initialTab: firstVisit ? 'lecture' : 'task',
+    onCollapse: () => toggleGuide(false),
+    onTab: (tab) => { body?.classList.toggle('lecture-tab', tab === 'lecture'); if (tab !== 'lecture') setReading(false); },
+    onWide: (on) => setReading(on ?? !body.classList.contains('reading')),
+  });
   const guideRail = h('button.guide-rail', { type: 'button', title: t('guide.expand'), 'aria-label': t('guide.expand'), onclick: () => toggleGuide(true) }, icon('book', { size: 16 }), h('span', t('guide.title')));
-  const body = h('div.lab-body', guide.el, guideRail, h('div.lab-main', tabs, workHost, hmiHost, resHost));
-  function toggleGuide(open) { body.classList.toggle('guide-closed', !open); storage.set('bk.lab.guide', open); }
+  body = h('div.lab-body', guide.el, guideRail, h('div.lab-main', tabs, workHost, hmiHost, resHost));
+  body.classList.toggle('lecture-tab', guide.tab === 'lecture');
+  function toggleGuide(open) { body.classList.toggle('guide-closed', !open); storage.set('bk.lab.guide', open); if (!open) setReading(false); }
+  /** Chế độ đọc rộng: bài giảng phủ lên vùng làm việc (không làm co Studio/3D). Esc để thoát. */
+  function setReading(on) {
+    if (!body) return;
+    body.classList.toggle('reading', !!on);
+    guide.el.querySelector('.wide-btn')?.setAttribute('aria-pressed', String(!!on));
+  }
   toggleGuide(guideOpen);
 
   /* ---------- Chấm / nộp ---------- */
@@ -179,6 +197,7 @@ export async function labPage({ id }, { user }) {
   window.__bk = { plc, m, studio, lab }; // hỗ trợ gỡ lỗi từ console
   // phím tắt toàn trang
   const onKey = (e) => {
+    if (e.key === 'Escape' && body.classList.contains('reading') && !document.querySelector('.modal-back')) { setReading(false); return; }
     if (e.key === 'F7' || ((e.ctrlKey || e.metaKey) && e.key === 'b')) { e.preventDefault(); compile(); }
     else if ((e.ctrlKey || e.metaKey) && e.key === 'l') { e.preventDefault(); download(); }
   };

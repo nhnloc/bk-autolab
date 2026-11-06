@@ -4,13 +4,14 @@ or, from the FreeCAD Python console:  import build_all; build_all.main()"""
 import importlib, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else None
 if HERE is None:
-    HERE = '/home/nhnloc/.config/Claude/scratch-workspaces/5b05e273-05ff-46c9-9d62-ccb079a8b0ce/eef6ec89-d414-4dbd-8ee5-3f6b0b873a46/scratch-2026-11-06-45910c/bk-autolab/tools/freecad'
+    HERE = '/home/nhnloc/0_Project/plc-simulation/bk-autolab/tools/freecad'
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 import lib
 importlib.reload(lib)
 
-ORDER = ['feeder', 'escapement', 'diverter', 'erector', 'sealer', 'pickplace', 'indexer', 'palletizer']
+ORDER = ['feeder', 'escapement', 'diverter', 'erector', 'sealer', 'pickplace', 'indexer', 'palletizer',
+         'trainer', 'motor', 'stardelta', 'counter']   # P1 (CONTRACT-P1)
 
 
 def main(ids=None):

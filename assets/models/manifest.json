@@ -1565,6 +1565,713 @@
     "layerLvlBeamZ": 785.0,
     "layersPerPallet": 3
    }
+  },
+  "trainer": {
+   "file": "trainer.glb",
+   "title": "B\u00e0n th\u1ef1c h\u00e0nh PLC S7-1200",
+   "accent": "#1C4F8F",
+   "bbox": [
+    [
+     -0.3,
+     -0.016,
+     -0.6
+    ],
+    [
+     1.5,
+     1.2881,
+     0.7
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -300.0,
+     -700.0,
+     -16.0
+    ],
+    [
+     1500.0,
+     600.0,
+     1288.1
+    ]
+   ],
+   "camera": {
+    "pos": [
+     0.04,
+     1.817,
+     1.374
+    ],
+    "target": [
+     0.6,
+     0.952,
+     0.0
+    ],
+    "fov": 45.0
+   },
+   "triangles": 25546,
+   "bytes": 934656,
+   "nodes": {
+    "out_H1": {
+     "type": "output",
+     "tag": "H1",
+     "color": "#e53935"
+    },
+    "out_H2": {
+     "type": "output",
+     "tag": "H2",
+     "color": "#fdd835"
+    },
+    "out_H3": {
+     "type": "output",
+     "tag": "H3",
+     "color": "#43a047"
+    },
+    "out_H4": {
+     "type": "output",
+     "tag": "H4",
+     "color": "#1e88e5"
+    },
+    "out_BUZ": {
+     "type": "output",
+     "tag": "BUZ",
+     "color": "#e53935"
+    },
+    "btn_S1": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0.9659,
+      -0.2588
+     ],
+     "travel": 4,
+     "button": "S1",
+     "kind": "momentary"
+    },
+    "btn_S2": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0.9659,
+      -0.2588
+     ],
+     "travel": 4,
+     "button": "S2",
+     "kind": "momentary"
+    },
+    "btn_S3": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0.9659,
+      -0.2588
+     ],
+     "travel": 4,
+     "button": "S3",
+     "kind": "momentary"
+    },
+    "btn_SW1": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      0.9659,
+      -0.2588
+     ],
+     "travel": 90,
+     "button": "SW1",
+     "kind": "selector"
+    },
+    "target_metal": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 120
+    },
+    "sen_PRX": {
+     "type": "sensor"
+    },
+    "sen_PE": {
+     "type": "sensor"
+    },
+    "blocker": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": -60
+    }
+   },
+   "refs": {
+    "deskTopZ": 750.0,
+    "panelTiltDeg": 15.0,
+    "panelNormalFC": [
+     0,
+     -0.9659,
+     0.2588
+    ],
+    "panelOriginFC": [
+     0,
+     -120.0,
+     795.0
+    ],
+    "panelSize": [
+     800.0,
+     500.0
+    ],
+    "buttonsFC": {
+     "S1": [
+      75.0,
+      -106.7,
+      879.4
+     ],
+     "S2": [
+      155.0,
+      -106.7,
+      879.4
+     ],
+     "S3": [
+      235.0,
+      -106.7,
+      879.4
+     ],
+     "SW1": [
+      335.0,
+      -98.0,
+      877.1
+     ]
+    },
+    "proxSensorFC": [
+     1120.0,
+     -180.0,
+     810.0
+    ],
+    "targetRestX": 1000.0,
+    "beamFC": [
+     [
+      900,
+      60.0,
+      840.0
+     ],
+     [
+      1190,
+      60.0,
+      840.0
+     ]
+    ],
+    "blockerX": 1045.0
+   }
+  },
+  "motor": {
+   "file": "motor.glb",
+   "title": "C\u1eeda cu\u1ed1n \u2013 \u0111\u1ed9ng c\u01a1 3 pha \u0111\u1ea3o chi\u1ec1u",
+   "accent": "#C0392B",
+   "bbox": [
+    [
+     -0.5,
+     -0.016,
+     -0.22
+    ],
+    [
+     3.2,
+     3.05,
+     1.3
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -500.0,
+     -1300.0,
+     -16.0
+    ],
+    [
+     3200.0,
+     220.0,
+     3050.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.88,
+     3.3,
+     4.86
+    ],
+    "target": [
+     1.425,
+     1.16,
+     0.25
+    ],
+    "fov": 45.0
+   },
+   "triangles": 18794,
+   "bytes": 775352,
+   "nodes": {
+    "door": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 2200.0,
+     "clipAboveZFC": 2420.0
+    },
+    "drum": {
+     "type": "rotate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 360,
+     "continuous": true,
+     "openingSign": 1
+    },
+    "sen_LS_Down": {
+     "type": "sensor"
+    },
+    "sen_LS_Up": {
+     "type": "sensor"
+    },
+    "sen_PE": {
+     "type": "sensor"
+    },
+    "obstacle": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 0,
+     "visibleFrom": "getVisual().obstacle (app shows/hides)"
+    },
+    "out_H_Up": {
+     "type": "output",
+     "tag": "H_Up",
+     "color": "#43a047"
+    },
+    "out_H_Down": {
+     "type": "output",
+     "tag": "H_Down",
+     "color": "#ffb300"
+    },
+    "btn_Up": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 4,
+     "button": "S_Up",
+     "kind": "momentary"
+    },
+    "btn_Down": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 4,
+     "button": "S_Down",
+     "kind": "momentary"
+    },
+    "out_KM1": {
+     "type": "output",
+     "tag": "KM1",
+     "color": "#43a047"
+    },
+    "out_KM2": {
+     "type": "output",
+     "tag": "KM2",
+     "color": "#43a047"
+    }
+   },
+   "refs": {
+    "doorBottomZ": [
+     0,
+     2200.0
+    ],
+    "doorClipAboveZ": 2420.0,
+    "doorX": [
+     30,
+     1970.0
+    ],
+    "curtainY": -65.0,
+    "drumAxisFC": [
+     [
+      0,
+      -245.0,
+      2590.0
+     ],
+     [
+      2000.0,
+      -245.0,
+      2590.0
+     ]
+    ],
+    "drumRadius": 180.0,
+    "peBeamFC": [
+     [
+      125,
+      -150.0,
+      300
+     ],
+     [
+      1875.0,
+      -150.0,
+      300
+     ]
+    ],
+    "obstacleBoxFC": [
+     [
+      800,
+      -360,
+      0
+     ],
+     [
+      1250,
+      -82,
+      380
+     ]
+    ],
+    "lsDownZ": 70,
+    "lsUpZ": 2230.0,
+    "stationFC": [
+     2260.0,
+     -90,
+     1250.0
+    ],
+    "cabinetFC": [
+     2700.0,
+     0,
+     1000.0
+    ]
+   }
+  },
+  "stardelta": {
+   "file": "stardelta.glb",
+   "title": "M\u00e1y n\u00e9n kh\u00ed \u2013 kh\u1edfi \u0111\u1ed9ng sao/tam gi\u00e1c",
+   "accent": "#1C6E8C",
+   "bbox": [
+    [
+     -0.25,
+     -0.016,
+     -0.5
+    ],
+    [
+     2.7,
+     1.2837,
+     0.8
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -250.0,
+     -800.0,
+     -16.0
+    ],
+    [
+     2700.0,
+     500.0,
+     1283.7
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.497,
+     2.119,
+     2.949
+    ],
+    "target": [
+     1.225,
+     0.504,
+     0.15
+    ],
+    "fov": 45.0
+   },
+   "triangles": 44971,
+   "bytes": 1537176,
+   "nodes": {
+    "pulley": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 360,
+     "continuous": true
+    },
+    "flywheel": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 360,
+     "continuous": true,
+     "follow": "pulley",
+     "ratio": 0.3053
+    },
+    "needle_P": {
+     "type": "rotate",
+     "axisFC": [
+      0.0,
+      -1.0,
+      0.0
+     ],
+     "travel": -270,
+     "zeroDeg": 225,
+     "range": [
+      0,
+      10
+     ],
+     "unit": "bar"
+    },
+    "sen_PS": {
+     "type": "sensor"
+    },
+    "out_KM1": {
+     "type": "output",
+     "tag": "KM1",
+     "color": "#43a047"
+    },
+    "out_KM2": {
+     "type": "output",
+     "tag": "KM2",
+     "color": "#43a047"
+    },
+    "out_KM3": {
+     "type": "output",
+     "tag": "KM3",
+     "color": "#43a047"
+    },
+    "sen_F1": {
+     "type": "sensor"
+    },
+    "needle_A": {
+     "type": "rotate",
+     "axisFC": [
+      0.0,
+      -1.0,
+      0.0
+     ],
+     "travel": -90,
+     "zeroDeg": 135,
+     "range": [
+      0,
+      200
+     ],
+     "unit": "A"
+    }
+   },
+   "refs": {
+    "tankAxisFC": [
+     [
+      50.0,
+      0,
+      430.0
+     ],
+     [
+      1650.0,
+      0,
+      430.0
+     ]
+    ],
+    "tankRadius": 300.0,
+    "motorAxisFC": [
+     520.0,
+     -380.0,
+     915.0
+    ],
+    "flywheelAxisFC": [
+     1080.0,
+     -380.0,
+     910.0
+    ],
+    "beltRatio": 0.3053,
+    "gaugeP_FC": [
+     1500.0,
+     -194.0,
+     955.0
+    ],
+    "psOn_bar": 6,
+    "psOff_bar": 8
+   }
+  },
+  "counter": {
+   "file": "counter.glb",
+   "title": "B\u0103ng t\u1ea3i \u0111\u1ebfm s\u1ea3n ph\u1ea9m v\u00e0o th\u00f9ng",
+   "accent": "#6A3FA0",
+   "bbox": [
+    [
+     -0.3,
+     -0.016,
+     -0.85
+    ],
+    [
+     2.45,
+     1.883,
+     1.0
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -300.0,
+     -1000.0,
+     -16.0
+    ],
+    [
+     2450.0,
+     850.0,
+     1883.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.563,
+     2.561,
+     2.976
+    ],
+    "target": [
+     1.125,
+     0.76,
+     0.05
+    ],
+    "fov": 45.0
+   },
+   "triangles": 20738,
+   "bytes": 844620,
+   "nodes": {
+    "belt_1": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "belt_2": {
+     "type": "belt",
+     "uvAxisFC": [
+      0,
+      1,
+      0
+     ]
+    },
+    "sen_B3": {
+     "type": "sensor"
+    },
+    "sen_B1": {
+     "type": "sensor"
+    },
+    "sen_B2": {
+     "type": "sensor"
+    },
+    "display": {
+     "type": "static",
+     "role": "display",
+     "tag": "Display",
+     "digits": 4,
+     "faceNormalFC": [
+      0,
+      -1,
+      0
+     ],
+     "faceSizeMM": [
+      590.0,
+      160.0
+     ],
+     "uAxisFC": [
+      1,
+      0,
+      0
+     ],
+     "vAxisFC": [
+      0,
+      0,
+      1
+     ],
+     "faceMaterial": "lcd",
+     "segmentMaterial": "seg"
+    },
+    "out_H_Full": {
+     "type": "output",
+     "tag": "H_Full",
+     "color": "#ffb300"
+    }
+   },
+   "refs": {
+    "belt1TopZ": 800.0,
+    "belt1X": [
+     0,
+     1500.0
+    ],
+    "belt1Width": 200,
+    "guideClear": 90.0,
+    "can": [
+     66.0,
+     120.0
+    ],
+    "productSpawnFC": [
+     60,
+     0,
+     800.0
+    ],
+    "chuteTopFC": [
+     1495.0,
+     0,
+     796.0
+    ],
+    "chuteDropFC": [
+     1600.0,
+     0.0,
+     675.0
+    ],
+    "chuteAngleDeg": 45.3,
+    "belt2TopZ": 450.0,
+    "belt2Y": [
+     -800,
+     750
+    ],
+    "belt2X": 1600.0,
+    "box": [
+     200.0,
+     300.0,
+     200.0
+    ],
+    "boxSpawnFC": [
+     1600.0,
+     -650,
+     450.0
+    ],
+    "boxAtChuteFC": [
+     1600.0,
+     0,
+     450.0
+    ],
+    "boxStopFaceY": 766,
+    "sensorX": {
+     "B3": 150,
+     "B1": 1440.0
+    },
+    "b2BeamY": 150.0,
+    "displayFaceFC": [
+     750.0,
+     382.0,
+     1635.0
+    ]
+   }
   }
  }
 }

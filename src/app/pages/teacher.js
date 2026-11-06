@@ -6,14 +6,21 @@ import { icon } from '../components/icons.js';
 import { getLabs } from '../labSession.js';
 import { MACHINE_TITLES } from '../course.js';
 
+/** Ghi chú trung thực: không có server, dữ liệu SV nằm trên trình duyệt của từng SV. */
+export function localNote() {
+  return h('div.note-box', icon('info', { size: 16 }), h('div', h('b', t('teacher.localTitle')), ' ', t('teacher.localNote')));
+}
+
 export async function teacherPage(_, { user }) {
   const [classes, labs] = await Promise.all([api.listClasses(), getLabs()]);
   const machineLabs = labs.filter((l) => l.machineId);
   const el = h('div.container',
     h('div.home-head', h('div', h('h1', t('teacher.hello', { name: user.name })), h('p.muted', t('teacher.sub')))),
-    h('h2.section-h', t('teacher.classes')),
+    h('div.row.section-row', h('h2.section-h', t('teacher.classes')), h('span.spacer'), h('a.btn.sm', { href: '#/teacher/classes' }, icon('table', { size: 14 }), t('nav.classList'))),
+    localNote(),
+    classes.length ? null : h('div.card', h('div.empty', t('teacher.noClasses'))),
     h('div.class-grid', classes.map((c) => h('a.card.class-card', { href: '#/teacher/class/' + encodeURIComponent(c.id) },
-      h('div.card-b', h('div.row', icon('user', { size: 18 }), h('b', c.name)), h('div.muted.small', `${c.course} · ${c.term}`),
+      h('div.card-b', h('div.row', icon('user', { size: 18 }), h('b', c.name)), h('div.muted.small', [c.id, c.term].filter(Boolean).join(' · '), c.inFile === false ? h('span.badge.warn.ml', t('teacher.notInFile')) : null),
         h('div.row.class-stats', h('span.badge.info', t('teacher.students', { n: c.studentCount })), h('span.spacer'), h('span.link-more', t('teacher.open'), icon('chevronR', { size: 14 }))))))),
     h('h2.section-h', t('teacher.labs')),
     h('div.card', h('table.table',

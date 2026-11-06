@@ -5,7 +5,7 @@ import { clone } from './dom.js';
 let labsCache = null;
 export async function getLabs() {
   const eng = await loadEngine();
-  if (!labsCache) labsCache = mergeCourse(eng.LABS);
+  if (!labsCache) labsCache = mergeCourse(eng.LABS, eng.MACHINES);
   return labsCache;
 }
 export async function getLab(id) { return (await getLabs()).find((l) => l.id === id) || null; }

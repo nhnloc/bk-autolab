@@ -149,3 +149,133 @@ a.lab-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); bo
 @media (max-width: 900px) { .lab-body, .lab-body.guide-closed { grid-template-columns: 0 30px minmax(0, 1fr); } .lab-body .guide { visibility: hidden; } .lab-body .guide-rail { visibility: visible; } .scan-box { display: none; } }
 .empty { padding: 20px; color: var(--muted); text-align: center; }
 .eng-badge { font-weight: 600; }
+
+/* ===== Đăng ký / Đăng nhập ===== */
+.seg-full { display: flex; width: 100%; margin: 12px 0 2px; }
+.seg-full .seg-btn { flex: 1; justify-content: center; height: 34px; }
+.seg-btn[aria-selected="true"] { background: var(--accent); color: var(--accent-text); }
+.login-form[hidden] { display: none; }
+.login-form .select { height: 36px; }
+.select.invalid { border-color: var(--err); background: var(--err-soft); }
+.field small { font-size: 11.5px; }
+.field-msg:empty { display: none; }
+.field-msg { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.teacher-entry { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.warn-text { color: var(--warn); }
+
+/* Thanh trên: tên + MSSV + lớp */
+.user-meta { line-height: 1.15; max-width: 260px; }
+.user-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-sub { font-size: 11px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-sub .mono { font-size: 11px; }
+.topbar .switch-acc { gap: 5px; }
+
+/* Ghi chú */
+.note-box { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin: 0 0 14px; border-radius: var(--radius); background: var(--info-soft); color: var(--text); font-size: 12.5px; line-height: 1.45; }
+.note-box > svg { flex: none; margin-top: 1px; color: var(--accent); }
+.note-box.err { background: var(--err-soft); }
+.note-box.err > svg { color: var(--err); }
+.section-row { margin: 20px 0 10px; }
+.section-row .section-h { margin: 0; }
+
+/* Danh sách lớp (giảng viên) */
+.cl-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.cl-table td { vertical-align: top; }
+.cl-table .input { width: 100%; min-width: 80px; height: 28px; }
+.cl-table td:nth-child(1) { width: 26%; } .cl-table td:nth-child(3) { width: 20%; }
+.cl-table .row-err { min-width: 0; max-width: 160px; }
+.cl-table .row-warn { margin-top: 3px; }
+.json-preview { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; font-size: 12px; }
+.cl-steps { margin: 14px 0 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; }
+.cl-steps code { background: var(--panel-3); padding: 1px 4px; border-radius: 3px; word-break: break-all; }
+@media (max-width: 1000px) { .cl-grid { grid-template-columns: 1fr; } }
+
+/* Đề cương */
+.syllabus { max-width: 1040px; }
+.syl-head { margin-bottom: 18px; }
+.syl-head h1 { font-size: 26px; margin: 2px 0 4px; }
+.syl-kicker { text-transform: uppercase; letter-spacing: .6px; font-weight: 700; color: var(--accent); }
+.syl-part { margin-bottom: 16px; overflow: hidden; }
+.syl-part .card-h h2 { font-size: 15px; }
+.syl-list { list-style: none; margin: 0; padding: 0; }
+.syl-lab { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.syl-lab:first-child { border-top: 0; }
+.syl-lab.soon { opacity: .65; }
+.syl-week { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; line-height: 1.1; padding-top: 2px; }
+.syl-week b { font-size: 20px; }
+.syl-title { font-weight: 600; font-size: 14px; }
+.syl-title a { color: var(--text); text-decoration: none; }
+.syl-title a:hover { color: var(--accent); text-decoration: underline; }
+.syl-meta { margin-top: 2px; }
+.syl-outcomes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px; color: var(--text); }
+.syl-outcomes li { display: flex; gap: 8px; align-items: baseline; }
+.oc-code { flex: none; font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 0 5px; border-radius: 3px; }
+.syl-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+@media (max-width: 640px) { .syl-lab { grid-template-columns: 40px minmax(0, 1fr); } .syl-side { grid-column: 2; flex-direction: row; align-items: center; } }
+
+/* ===== Hướng dẫn lab: tab Bài giảng / Nhiệm vụ ===== */
+.lab-body { position: relative; }
+.lab-body > .guide { grid-column: 1; grid-row: 1; }
+.lab-body > .guide-rail { grid-column: 2; grid-row: 1; }
+.lab-body > .lab-main { grid-column: 3; grid-row: 1; }
+.lab-body.lecture-tab:not(.guide-closed) { grid-template-columns: 400px 0 minmax(0, 1fr); }
+@media (max-width: 1280px) { .lab-body.lecture-tab:not(.guide-closed) { grid-template-columns: 360px 0 minmax(0, 1fr); } }
+@media (max-width: 900px) { .lab-body.lecture-tab:not(.guide-closed) { grid-template-columns: 0 30px minmax(0, 1fr); } }
+.lab-body.reading:not(.guide-closed) > .guide { position: absolute; grid-column: 1 / -1; inset: 0 auto 0 0; width: min(920px, 100%); z-index: 30; box-shadow: var(--shadow-lg); visibility: visible; }
+.lab-body.reading:not(.guide-closed)::after { content: ''; grid-column: 1 / -1; grid-row: 1; position: absolute; inset: 0; background: rgba(10, 20, 30, .28); z-index: 29; pointer-events: none; }
+.lab-body.reading .guide-lecture { font-size: 14px; padding: 16px 28px 40px; }
+.lab-body.reading .lecture { max-width: 760px; }
+.wide-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.gtabs { display: flex; flex: none; border-bottom: 1px solid var(--border); background: var(--panel-2); padding: 0 8px; gap: 2px; }
+.gtab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 32px; border: 0; background: none; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 12.5px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.gtab:hover { color: var(--text); }
+.gtab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.guide-body[hidden] { display: none; }
+.guide-body { flex: 1; min-height: 0; }
+
+/* Nội dung bài giảng */
+.guide-lecture { font-size: 13px; line-height: 1.55; }
+.lecture { color: var(--text); }
+.lecture p { margin: 0 0 8px; }
+.lec-h { font-size: 14.5px; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); text-transform: none; letter-spacing: 0; color: var(--text); }
+.lecture .md-h { font-size: 13px; margin: 12px 0 4px; color: var(--accent); }
+.lecture .md-list { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 3px; }
+.md-code { font-family: var(--mono); font-size: .92em; background: var(--panel-3); padding: 0 4px; border-radius: 3px; white-space: nowrap; }
+.md-table-wrap { overflow-x: auto; margin: 4px 0 10px; }
+.md-table { border-collapse: collapse; font-size: .92em; min-width: 100%; }
+.md-table th, .md-table td { border: 1px solid var(--border); padding: 3px 6px; text-align: left; vertical-align: top; }
+.md-table th { background: var(--panel-2); font-weight: 600; }
+.lec-outcomes { background: var(--accent-soft); border-radius: var(--radius); padding: 10px 12px; margin-top: 4px; }
+.guide-body .lec-outcomes h3 { color: var(--accent); margin-bottom: 6px; }
+.lec-outcomes ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 5px; }
+.lec-outcomes li { display: flex; gap: 8px; align-items: baseline; }
+.lec-outcomes .oc-code { background: var(--panel); }
+.lec-toc { margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel-2); }
+.guide-body .lec-toc ul { margin: 4px 0 0; padding-left: 0; list-style: none; gap: 2px; }
+.lec-toc a { color: var(--accent); text-decoration: none; }
+.lec-toc a:hover { text-decoration: underline; }
+.lec-sec { scroll-margin-top: 8px; }
+.lec-next { margin-top: 18px; display: flex; justify-content: flex-end; }
+.lec-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--muted); padding: 30px 10px; }
+
+/* Câu hỏi nhanh */
+.quiz { margin-top: 18px; }
+.quiz-head { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.quiz-head .lec-h { border: 0; margin: 10px 0 4px; padding: 0; }
+.guide-body .quiz-list { list-style: decimal; padding-left: 20px; display: grid; gap: 12px; margin-top: 8px; }
+.quiz-q { padding: 2px 0; }
+.quiz-text { font-weight: 600; margin-bottom: 6px; }
+.quiz-opts { display: grid; gap: 4px; }
+.quiz-opt { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; background: var(--panel); }
+.quiz-opt:hover { border-color: var(--accent); }
+.quiz-opt input { margin: 3px 0 0; flex: none; }
+.quiz-opt > span { flex: 1; }
+.quiz-opt > svg { flex: none; margin-top: 2px; }
+.quiz-opt.correct { border-color: var(--ok); background: var(--ok-soft); }
+.quiz-opt.picked-wrong { border-color: var(--err); background: var(--err-soft); }
+.quiz-opt.dim { opacity: .6; }
+.quiz-opt:has(input:disabled) { cursor: default; }
+.quiz-opt:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.quiz-fb { margin-top: 6px; font-size: .95em; padding: 6px 8px; border-left: 3px solid var(--border-strong); background: var(--panel-2); border-radius: 0 4px 4px 0; }
+.quiz-q.right .quiz-fb { border-left-color: var(--ok); }
+.quiz-q.wrong .quiz-fb { border-left-color: var(--err); }

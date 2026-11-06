@@ -90,3 +90,166 @@ What the UI relies on / assumes (beyond CONTRACT §4):
 - Without WebGL (some lab PCs / remote desktops) the viewer falls back to a 2D top-view canvas (`src/scene/fallback2d.js`) instead of failing.
 - The LAD editor stores UI-only `_collapsed` on networks (ignored by the engine). Timer/counter boxes get auto-named instances `"IEC_Timer_<n>_DB"` / `"IEC_Counter_<n>_DB"` (engine auto-creates instance DBs). MOVE uses `params.OUT1`; SR/RS bit operand in `instance`.
 - Proposal: engine could export `LAB_PASS_RATIO` and a per-lab `allowOverride` flag; UI already reads them if present.
+
+## UI — Phần 1 (2026-11-06)
+
+L01–L04 mapped in `src/app/course.js` → `trainer`, `motor`, `stardelta`, `counter` (+ `MACHINE_TITLES`). Tested end-to-end
+with the real engine (2D fallback in the browser at 1366×768, light/dark) and the 3D binding logic in Node on placeholders.
+
+- **Availability**: `mergeCourse(LABS, MACHINES)` sets `machineId = null` (shown "Sắp có") when the engine has no such
+  machine, so a lab never opens on a missing machine. Home uses that, and in `PUBLIC_MODE` shows only labs with a machine.
+  Mock DB: one-time migration (`migP1`) opens Part-1 labs in demo data created before this change.
+- **Grading**: generic checks table (any number of checks); `passed` taken from the engine result if it has one, else ≥ 50 %.
+- **Operator panel** (`machine/operatorPanel.js`): machine buttons in a wrapping row (2-line labels); `latching` buttons
+  that are not the E-Stop (`color:'estop'` / id `EStop`) are ON/OFF toggles with an LED; generic `selector` shows `0/1`
+  (or `def.buttons[].positions`); `nc:true` gets a red **NC** tag unless the label already says NC. Buttons pressed from 3D
+  are reflected. `getVisual().displays` → red 7-segment LED readouts at the top of the panel (`machine/readouts.js`,
+  decimals shown with the DP segment, overflow → `----`).
+- **Trend** (`machine/readouts.js`, `createTrend`): when `getVisual().trend` exists, a collapsible strip under the 3D view
+  (canvas, themed from CSS tokens, legend with live values, y-axis scaled to the first series' `max`, other series scaled
+  to their own `max`, 600-point window × `dtMs`). Open/closed remembered (`bk.trend.open`).
+- **3D viewer**: `out_<TAG>` nodes glow in their colour (manifest `color`, else material colour brightened) from
+  `getVisual().outs` (fallback `m.outputs`); `btn_<ID>` nodes are clickable (capture-phase pointerdown on the container
+  so OrbitControls does not rotate; momentary = press on down / release on pointerup anywhere; latching/selector toggle per
+  click) with a pointer cursor on hover; any `parts.<node>_visible` hides/shows that node (motor `obstacle_visible`);
+  `needle_*`, `drum`, `pulley` use the generic rotate binding. Items: `product` with `shape:'can'` → cylinder can.
+  **Proposal for the 3D author**: optional manifest node field `clipZ` (FreeCAD mm) clips the node's geometry above that
+  height (used by the placeholder roller door so it disappears into the drum housing instead of floating above the frame).
+- **Placeholders** (`scene/nodes.js`): `NODE_DEFS` + box placeholders for the 4 machines with every contract node name
+  (manifest entries override them when the GLBs arrive).
+- **2D fallback**: draws placeholder blocks (top view, translate nodes follow `parts`), output lamps row (`outs`) and LED
+  displays; bounding box from manifest or placeholder.
+- **HMI**: belt mimic only when the machine has motors; lamp row for machines without cylinders; displays as KPIs.
+- Dev shim (`src/app/dev/fakeP1.js`): stub P1 machines + L01–L04 for `?engine=fake`.
+
+Gaps: real GLBs for the 4 machines not yet checked (manifest nodes override the placeholder defs; rerun the Node check
+when they land). `display` node texture (digits on the 3D LED board) not implemented — readout is on the 2D panel.
+
+## 3D — Phần 1 (L01–L04) — 2026-11-06
+
+New GLBs `trainer`, `motor`, `stardelta`, `counter` (+ `src/*.FCStd`, `preview/*.png`, merged into `manifest.json`;
+the 8 existing entries untouched). Scripts `tools/freecad/<id>.py`; new parts appended to `tools/freecad/lib.py`
+(section "Phần 1": face-frame helpers `face_pl/lbox/lcyl`, `pushbutton`, `selector`, `pilot_lamp`, `buzzer`,
+`din_rail`, `s7_1200`, `psu`, `mcb`, `terminals`, `contactor`, `overload`, `gauge`, `seg7_digit`, `cabinet`,
+`through_beam`, `limit_switch`, `text` = flat DejaVu glyph faces). `build_all.py` ORDER and `check.py` cover all 12
+(check also verifies `out_*` manifest type/tag/colour). Result: trainer 25.5k tris / 0.91 MB, motor 18.8k / 0.76 MB,
+stardelta 45.0k / 1.5 MB, counter 20.7k / 0.82 MB — all OK.
+
+Manifest conventions added (all FreeCAD mm / Z-up, as before):
+- `out_<TAG>`: `{type:'output', tag, color}`; mesh material = dark lens (`lens_red|yellow|green|blue|amber`) — light
+  it with emissive = `color`. Node origin = lens centre. Contactor indicators (`out_KM*`) are small green windows on the
+  contactor front, inside the cabinet behind `glass_cabinet`.
+- `btn_<ID>`: extra fields `button` (id for `m.press`) and `kind` (`momentary` | `selector`).
+  motor buttons carry `button:'S_Up'/'S_Down'` (I/O tags) — the node names stay `btn_Up`/`btn_Down` per contract;
+  map node → `def.buttons` id in the UI if the ids differ.
+- `needle_*`: extra `zeroDeg` (angle of the zero mark, CCW from "right" seen from the front), `range`, `unit`.
+  Needles are modelled pointing at zero; positive value turns clockwise on the dial.
+- Optional extra node **`flywheel`** (stardelta): `{type:'rotate', axisFC:[0,1,0], continuous:true, follow:'pulley',
+  ratio:0.3053}` → rotate by `pulleyAngle * ratio` (allowed by check.py as an extra). Without it the compressor
+  flywheel just stays still.
+- Continuous rotors (`drum`, `pulley`, `flywheel`) have `continuous:true`; `drum.openingSign = +1` (positive rotation
+  about +X = door going up).
+- Gauge cover glasses are in `static_glass` (material `glass`, already alpha-blended).
+
+Per machine (refs are in the manifest under `refs`):
+- **trainer**: desk top Z=750, panel 800×500 at X 0..800, bottom edge front face (0,−120,795), tilted 15° back,
+  outward normal (0,−0.9659,0.2588). Buttons `btn_S1..S3` axisFC = into panel (0,0.9659,−0.2588) travel 4.
+  `btn_SW1` axisFC = into panel, travel 90: rest = knob at 45° left ("0"), value 1 = 45° right ("1").
+  Sensor module on the desk right (X 860..1230): `target_metal` rest X=1000 → +120 under the M18 sensor at X=1120
+  (sensing face Z=810); through-beam along X at Y=60, Z=840; `blocker` flag rest bottom Z=862 → −60 covers the beam.
+  Panel also has decorative I/O jacks, header "BK-AutoLab PLC TRAINER S7-1200", labelled plates (S1 I0.5 … BUZ Q0.6). PLC module is unbranded (text "PLC" / "CPU 1214C" only — no vendor names or logos in any model).
+- **motor**: door bottom edge Z range **0 → 2200** (`door` origin (1000,−65,0)), curtain X 30..1970, slats up to
+  Z=2420. **The door mesh is a rigid curtain: when translated up it sticks out above the drum hood. UI must clip it:
+  `renderer.localClippingEnabled = true` and a clipping plane on the door materials at FC Z = `nodes.door.clipAboveZFC`
+  (2420 mm → three y = 2.42, keep y < 2.42).** Drum axis (·, −245, 2590) R=180, spoked end discs + seams so the
+  rotation is visible. LS_Down / LS_Up roller switches on the right guide at Z 70 / 2230. Safety through-beam at Z=300,
+  Y=−150 (in front of the curtain). `obstacle` carton 450×278×380 at X 800..1250 (in the doorway, cuts the beam) —
+  app hides/shows it. Wall push-button station (yellow) at X 2260: lamps H_Up (green) / H_Down (amber) above
+  `btn_Up` / `btn_Down` (press axis +Y). Cabinet 400×600×200 at X 2700 on the wall, Z 1000..1600, glass window over
+  CB, KM1/KM2 (+ interlock), F1, terminals.
+- **stardelta**: tank 1600×Ø600 X 50..1650, axis Z=430; motor shaft axis Y at (520, ·, 915), pulley face Y=−380;
+  compressor flywheel (1080, ·, 910) Ø380, 2×V-belts; open fan cage at the back so the fan (part of `pulley`) shows.
+  `needle_P`: gauge Ø110 facing −Y at (1500,−194,955), axisFC (0,−1,0), zeroDeg 225 (bottom-left), −270 → 10 bar at
+  bottom-right; zones green 0–6, amber 6–8, red 8–10 bar. `sen_PS` LED on the pressure switch above the manifold.
+  Cabinet 600×800×250 on a 100 plinth at X 1950..2550 (front Y=10), glass window over Q1, PSU, S7-1200, KM1 LINE /
+  KM2 STAR / KM3 DELTA, F1 (`sen_F1`), KT; door bottom: 96×96 ammeter `needle_A` (axisFC (0,−1,0), zeroDeg 135 =
+  upper-left, −90 → 200 A upper-right), RUN/STAR/TRIP lamps (static, not outputs), red/yellow isolator.
+- **counter**: belt_1 white X 0..1500 top 800 width 200, can guides clear 90; product spawn (60,0,800).
+  Chute X 1495→1605 (45°), drop point (1600,0,675). belt_2 green along +Y, Y −800..750, X centre 1600, top 450,
+  width 260; box 200 (X) × 300 (Y) × 200; box spawn (1600,−650,450); box centred under the chute = (1600,0,450);
+  B2 beam along X at **Y=150** (box leading edge there ⇒ box centred at Y=0); end stop plate at Y=766.
+  B3 at X=150, B1 at X=1440 (end of belt, beam across Y at can mid-height 860).
+  `display`: LED board on a column, face normal **−Y** (facing the operator/camera), face centre (750,382,1635),
+  face 590×160 mm. The `display` mesh has two primitives: material `lcd` (black face, TEXCOORD_0 0..1, u → +X,
+  v down = glTF) and `seg` (four unlit "8." digits). To show digits in 3D: draw a canvas texture on the `lcd`
+  primitive and hide the `seg` primitive. `out_H_Full` = amber beacon on top of the board.
+  Operator box with stack light at X 2150 is decor only (stack-light segments are static, not `static_lamp_*` nodes).
+
+Deviations: none on node names or the dimensions in CONTRACT-P1. Counter box orientation chosen as 300 along the
+box-belt travel (Y). Motor "cao 2400" = guide height; drum/hood sit above it (top of model Z≈2850, wall 3050).
+
+## UI — Đăng ký & bài giảng (2026-11-06)
+
+**Accounts / data (`src/app/mockApi.js`, new DB key `bk.db.v3`, session `bk.session`).**
+- All demo data removed: no fake students, fake submissions or fake classes are seeded; the DB starts empty.
+- Teacher: one built-in account (`gv01`, "Giảng viên"), **local only** — entered with the "Vào vai trò giảng viên"
+  button on the login page when not `PUBLIC_MODE`; `getMe()` never returns a teacher in `PUBLIC_MODE`.
+- Migration from `bk.mock.db.v2` (runs once, then deletes the old key + old session): drops every old account, the 2
+  demo classes, demo schedules/faults and every submission without a `project` (the demo ones). Keeps projects and real
+  submissions, re-keyed to `sv<MSSV>|<lab>`; when a student re-registers with the same MSSV the work re-attaches
+  (toast "Đã khôi phục bài làm cũ…"). Unit-checked in Node and on a real old DB in the browser.
+- Student ids are `sv<MSSV>`. API: `register({name, classId, mssv})` → logs in; `loginStudent({mssv})`;
+  `loginTeacher()`; `logout()`. Name trimmed + spaces collapsed (2–80 chars); MSSV trimmed, `^\d{7,10}$`, unique per
+  browser. Lab schedule = default (open if the lab has a machine) + teacher overrides stored per class on that browser.
+
+**Class list = static file `data/classes.json`** (`{ "classes": [ {id, name, term} ] }`, one "Lớp mẫu" example entry).
+`src/app/classes.js` fetches it (`cache: 'no-cache'`), normalises it, friendly errors (missing file / bad JSON /
+offline) with a "Thử lại" button on the form. Teacher page **Danh sách lớp** (`#/teacher/classes`, local only): edit
+id/name/term, add/delete (confirm if students are registered), validation (id `[A-Za-z0-9._-]`, unique; name required),
+warning when renaming an id that registered students use, live JSON preview, draft kept in `bk.classes.draft`, button
+**Tải xuống classes.json** (no BOM) + steps (replace `data/classes.json`, `git push`, wait for Pages). Teacher pages
+show an honest note: no server, they only see students registered in this browser. Classes referenced by local students
+but missing from the file are still listed ("Không có trong classes.json").
+
+**Login page** = "Đăng ký / Đăng nhập" tabs (default Đăng ký if no account on this browser). Register: Họ và tên,
+Lớp (dropdown from classes.json), MSSV; login: MSSV only; note that it is a practice site without passwords and work
+stays in this browser. Top bar: avatar + name + MSSV · class name (refreshed from classes.json), "Đổi tài khoản"
+(flushes the lab autosave before logging out).
+
+**Lectures** (`src/app/lectures.js` loads `src/labs/lectures.js` by dynamic import, `{}` on failure; `COURSE_INFO`
+used for the course title, fallback `COURSE_TITLE` in `src/app/course.js`). Safe Markdown subset renderer
+`src/app/components/md.js` (DOM text nodes only, no `innerHTML`): paragraphs, `#..###` headings, `-`/`*` lists,
+numbered lists (with start), `**bold**`, `` `code` ``, pipe tables (a `|` inside a code span or written `\|` does not
+split cells — needed for LAD symbols like `` `-| |-` ``).
+- Lab guide panel: tabs **Bài giảng** (badges for reading time / quiz size, "Sau bài này bạn có thể…" outcomes,
+  contents list when > 2 sections, sections, quiz, "Sang phần Nhiệm vụ") and **Nhiệm vụ** (previous content; requirements
+  now above the I/O table). First visit of a lab with a lecture opens the guide on Bài giảng (forced open even at
+  1366 px); later visits open on Nhiệm vụ (`bk.lecture.seen.<userId>`). Lecture tab widens the guide to 400 px (360 px
+  ≤ 1280 px); the ⤢ button opens a 920 px reading overlay over the work area (Studio/3D are not resized), Esc closes.
+- Quiz: instant feedback (correct/wrong + explanation), options locked once answered, score badge, "Làm lại"; saved in
+  `bk.quiz.<userId>.<labId>`.
+- **Đề cương** page (`#/syllabus`, nav for students and teacher): course title/subtitle, the 5 parts with labs in
+  order: week, id, title, machine, duration, lecture/quiz badges, outcomes (fallback: lab objectives), student status and
+  "Vào lab". `PUBLIC_MODE` shows only labs with a machine (same rule as home).
+
+**3D viewer fixes (`src/scene/`)** — requested by the lead, checked in Node with GLTFLoader.parse on the real GLBs
+(the in-app browser has no WebGL):
+- Clipping unified: node field `clipAboveZFC` (manifest) or legacy `clipZ` (placeholder now uses `clipAboveZFC` too) →
+  world clipping plane y ≤ Z/1000 on cloned materials (array materials handled). Motor door: 4 materials clipped at
+  y = 2.42; nothing else clipped.
+- Buttons: press id always from the node name `btn_<ID>`; manifest `button` is used only if `<ID>` is not in
+  `def.buttons` (motor `btn_Up` → `Up`, not `S_Up`); click kind falls back to the manifest `kind`.
+- Counter `display`: canvas texture with red 7-segment digits (dim unlit segments) on the `lcd` primitive
+  (`flipY=false`, glTF UVs), `seg` primitive hidden, value from `getVisual().displays` (matched by `tag`, else index),
+  redrawn only on change. Shared 7-segment table/format in `src/scene/seg7.js` (also used by the 2D readouts).
+- Rotating nodes with `follow`/`ratio` (stardelta `flywheel` = pulley × 0.3053).
+
+Tested in the in-app browser at 1366×768 with the real engine (2D fallback): old-DB migration, registration validation
+(bad MSSV, duplicate, unknown MSSV on login), restore of old work, home, syllabus, L01 first visit → lecture, reading mode
++ Esc, quiz feedback + persistence, task tab, RUN, test grade (10/100 on the starter), HMI, account switching, teacher
+dashboard / class tabs (grades, schedule, faults, students), class-list editing/validation/download (blob checked),
+missing classes.json error + retry. No console errors in the flow.
+
+Gaps: `PUBLIC_MODE` paths reviewed but only exercised on localhost. `README.md` still mentions the old demo logins
+(not in the UI's file set). Data stays per browser (by design until there is a server); teacher schedule/fault settings
+do not reach students' browsers.

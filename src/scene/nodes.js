@@ -4,6 +4,8 @@
 const T = (axisFC, travel, parent) => ({ type: 'translate', axisFC, travel, ...(parent ? { parent } : {}) });
 const R = (axisFC, travel) => ({ type: 'rotate', axisFC, travel });
 const B = { type: 'belt' };
+const O = (tag, color) => ({ type: 'output', tag, color });
+const BTN = (axisFC = [0, 1, 0]) => T(axisFC, 4);
 
 export const NODE_DEFS = {
   feeder: { cyl_1A_rod: T([1, 0, 0], 120), cyl_2A_rod: T([0, -1, 0], 30), belt_1: B },
@@ -13,6 +15,22 @@ export const NODE_DEFS = {
   sealer: { cyl_1A_rod: T([0, 0, 1], 40), flap_2A: R([0, 1, 0], 90), flap_3A: R([0, 1, 0], -120), cyl_4A_rod: T([0, 0, -1], 80), belt_in: B, belt_side_L: B, belt_side_R: B },
   pickplace: { slide_1A: T([1, 0, 0], 500), cyl_2A_rod: T([0, 0, -1], 150, 'slide_1A'), belt_in: B, belt_out: B },
   indexer: { table: R([0, 0, 1], 360), cyl_1A_rod: T([0, 0, 1], 30), cyl_2A_rod: T([0, 0, -1], 80), cyl_3A_rod: T([0, -1, 0], 200), cyl_4A_rod: T([1, 0, 0], 200), cyl_5A_rod: T([1, 0, 0], 200) },
+  // Phần 1 (CONTRACT-P1)
+  trainer: {
+    btn_S1: BTN(), btn_S2: BTN(), btn_S3: BTN(), btn_SW1: R([0, 1, 0], 90),
+    out_H1: O('H1', '#e53935'), out_H2: O('H2', '#fdd835'), out_H3: O('H3', '#43a047'), out_H4: O('H4', '#1e88e5'), out_BUZ: O('BUZ', '#e53935'),
+    target_metal: T([1, 0, 0], 120), blocker: T([0, 0, 1], -60),
+  },
+  motor: {
+    door: { ...T([0, 0, 1], 2200), clipAboveZFC: 2250 }, drum: R([1, 0, 0], 360), btn_Up: BTN(), btn_Down: BTN(),
+    out_KM1: O('KM1', '#43a047'), out_KM2: O('KM2', '#43a047'), out_H_Up: O('H_Up', '#43a047'), out_H_Down: O('H_Down', '#fdd835'),
+    obstacle: T([0, 1, 0], 0),
+  },
+  stardelta: {
+    pulley: R([0, 1, 0], 360), needle_P: R([0, 1, 0], -270), needle_A: R([0, 1, 0], -90),
+    out_KM1: O('KM1', '#43a047'), out_KM2: O('KM2', '#fdd835'), out_KM3: O('KM3', '#1e88e5'),
+  },
+  counter: { belt_1: { type: 'belt', uvAxisFC: [1, 0, 0] }, belt_2: { type: 'belt', uvAxisFC: [0, 1, 0] }, out_H_Full: O('H_Full', '#fb8c00') },
   palletizer: { cyl_1A_rod: T([0, 0, 1], 40), cyl_2A_rod: T([0, 1, 0], 650), plate_3A_L: T([-1, 0, 0], 450), plate_3A_R: T([1, 0, 0], 450), lift: T([0, 0, 1], 900), pallet: { type: 'static', parent: 'lift' }, belt_in: B },
 };
 
@@ -43,7 +61,70 @@ function cylX(x0, x1, y, z, node, rodLen, dir = 1) {
   ];
 }
 
+// Nút nhấn tròn (khối vuông nhỏ) nhô khỏi mặt tấm phía −Y, nhấn theo +Y.
+const pbtn = (node, x, z, c, y = 170) => ({ node, b: [x - 15, y - 14, z - 15, x + 15, y, z + 15], c });
+const lampAt = (node, x, z, c, y = 170) => ({ node, b: [x - 16, y - 12, z - 16, x + 16, y, z + 16], c });
+
 export const PLACEHOLDER = {
+  trainer: [
+    { b: [-100, -400, 700, 1400, 450, 750], c: C.wood },
+    ...legs(-100, 1400, -400, 450, 700),
+    { b: [0, 170, 750, 820, 200, 1260], c: C.steel },
+    { b: [40, 160, 1120, 360, 170, 1230], c: C.body }, { b: [380, 160, 1120, 760, 170, 1230], c: '#2e8b9a' },
+    pbtn('btn_S1', 100, 900, '#2fa84f'), pbtn('btn_S2', 190, 900, '#2fa84f'), pbtn('btn_S3', 280, 900, '#d32f2f'),
+    { node: 'btn_SW1', pivot: [380, 165, 900], b: [365, 150, 870, 395, 168, 930], c: C.grip },
+    lampAt('out_H1', 100, 1020, '#5a1f1f'), lampAt('out_H2', 190, 1020, '#5a521f'), lampAt('out_H3', 280, 1020, '#1f4d2c'), lampAt('out_H4', 370, 1020, '#1f2f5a'),
+    { b: [440, 150, 990, 500, 170, 1050], c: C.grip }, lampAt('out_BUZ', 470, 1020, '#5a1f1f', 148),
+    { b: [880, -60, 750, 1150, 60, 770], c: C.roller },
+    { node: 'target_metal', b: [950, -35, 770, 1010, 35, 780], c: '#cfd8dc' },
+    { b: [1088, -12, 800, 1112, 12, 920], c: C.body }, { node: 'sen_PRX', b: [1095, -6, 920, 1105, 6, 930], c: C.grip },
+    { b: [1230, -170, 750, 1270, -130, 880], c: C.body }, { b: [1230, 130, 750, 1270, 170, 880], c: C.body },
+    { node: 'sen_PE', b: [1244, 120, 860, 1256, 130, 872], c: C.grip },
+    { node: 'blocker', b: [1220, -40, 850, 1280, 40, 960], c: C.warn },
+  ],
+  motor: [
+    { b: [-80, -80, 0, 0, 80, 2300], c: C.frame }, { b: [2000, -80, 0, 2080, 80, 2300], c: C.frame },
+    { b: [-80, -200, 2250, 2080, 200, 2500], c: C.body },
+    { node: 'drum', pivot: [1000, 0, 2380], b: [0, -100, 2280, 2000, 100, 2480], c: C.roller },
+    { node: 'door', b: [0, -15, 0, 2000, 15, 2200], c: '#90a4ae' },
+    { node: 'obstacle', b: [800, -250, 0, 1200, 150, 400], c: '#c8a273' },
+    { node: 'sen_PE', b: [-10, -100, 290, 10, -80, 310], c: C.grip }, { node: 'sen_LS_Up', b: [-30, -100, 2180, -10, -80, 2200], c: C.grip }, { node: 'sen_LS_Down', b: [-30, -100, 10, -10, -80, 30], c: C.grip },
+    { b: [2200, -60, 1200, 2320, -20, 1500], c: C.grip },
+    pbtn('btn_Up', 2260, 1420, '#2fa84f', -60), pbtn('btn_Down', 2260, 1300, '#e0a800', -60),
+    lampAt('out_H_Up', 2230, 1480, '#1f4d2c', -60), lampAt('out_H_Down', 2290, 1480, '#5a521f', -60),
+    { b: [2400, 0, 800, 2800, 200, 1400], c: C.steel },
+    { b: [2450, -10, 1050, 2550, 0, 1250], c: C.body }, { b: [2600, -10, 1050, 2700, 0, 1250], c: C.body },
+    lampAt('out_KM1', 2500, 1200, '#1f4d2c', -10), lampAt('out_KM2', 2650, 1200, '#1f4d2c', -10),
+    { b: [2400, -30, 800, 2800, -20, 1400], c: C.glass, name: 'glass_cabinet' },
+  ],
+  stardelta: [
+    { b: [0, -300, 100, 1600, 300, 700], c: '#8e1b1b' },
+    ...legs(100, 1500, -300, 300, 100),
+    { b: [200, -160, 700, 600, 160, 980], c: '#37474f' },
+    { node: 'pulley', pivot: [400, -200, 840], b: [320, -215, 760, 480, -195, 920], c: C.steel },
+    { b: [900, -160, 700, 1300, 160, 1100], c: C.body },
+    { b: [1400, -320, 820, 1580, -300, 1000], c: '#fafafa' },
+    { node: 'needle_P', pivot: [1490, -325, 910], b: [1486, -330, 910, 1494, -322, 980], c: '#d32f2f' },
+    { node: 'sen_PS', b: [1300, -330, 760, 1320, -310, 780], c: C.grip },
+    { b: [1900, 0, 0, 2500, 250, 1400], c: C.steel },
+    { b: [1960, -10, 1000, 2060, 0, 1200], c: C.body }, { b: [2100, -10, 1000, 2200, 0, 1200], c: C.body }, { b: [2240, -10, 1000, 2340, 0, 1200], c: C.body },
+    lampAt('out_KM1', 2010, 1160, '#1f4d2c', -10), lampAt('out_KM2', 2150, 1160, '#5a521f', -10), lampAt('out_KM3', 2290, 1160, '#1f2f5a', -10),
+    { node: 'sen_F1', b: [2000, -20, 900, 2020, 0, 920], c: C.grip },
+    { b: [2120, -40, 1250, 2280, -30, 1380], c: '#fafafa' },
+    { node: 'needle_A', pivot: [2200, -45, 1270], b: [2196, -50, 1270, 2204, -42, 1360], c: '#d32f2f' },
+    { b: [1900, -30, 600, 2500, -20, 1400], c: C.glass, name: 'glass_cabinet' },
+  ],
+  counter: [
+    ...conveyor(0, 1500, -80, 80, 'belt_1', C.beltW),
+    { b: [1500, -80, 640, 1620, 80, 660], c: C.steel },
+    { b: [1400, -700, 330, 1450, 700, 440], c: C.frame }, { b: [1750, -700, 330, 1800, 700, 440], c: C.frame },
+    { node: 'belt_2', b: [1450, -700, 430, 1750, 700, 450], c: '#1e5aa8' },
+    ...legs(1400, 1800, -700, 700, 330),
+    { b: [980, 380, 0, 1020, 420, 1300], c: C.frame },
+    { name: 'display', b: [850, 370, 1300, 1150, 410, 1450], c: '#111111' },
+    { node: 'out_H_Full', b: [985, 380, 1450, 1015, 410, 1500], c: '#5a3a1f' },
+    { node: 'sen_B1', b: [1480, -110, 820, 1500, -90, 840], c: C.grip }, { node: 'sen_B2', b: [1400, -30, 470, 1420, -10, 490], c: C.grip }, { node: 'sen_B3', b: [50, -110, 820, 70, -90, 840], c: C.grip },
+  ],
   feeder: [
     ...conveyor(200, 800, -70, 70, 'belt_1'),
     { b: [-150, -150, 0, 180, 150, 780], c: C.base },

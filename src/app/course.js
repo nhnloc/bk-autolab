@@ -1,6 +1,9 @@
 // Khung khóa học (20 lab, 5 phần) phía UI. Nội dung chi tiết (mục tiêu, bước, chấm) lấy từ src/labs khi có;
 // bảng này chỉ để hiển thị danh sách, tuần học và ánh xạ lab → máy mô phỏng.
 
+/** Tên học phần — giảng viên sửa tại đây (hiện ở Đề cương, trang chủ, thanh trên). */
+export const COURSE_TITLE = 'Lập trình PLC và điều khiển khí nén';
+
 export const PARTS = [
   { id: 1, title: 'Phần 1. Nền tảng: tủ điện và PLC cơ bản', weeks: '1–4' },
   { id: 2, title: 'Phần 2. Điều khiển xi lanh trong máy đóng gói', weeks: '5–9' },
@@ -11,10 +14,10 @@ export const PARTS = [
 
 /** machineId = null → lab chưa có máy mô phỏng ở giai đoạn này. */
 export const COURSE = [
-  { id: 'L01', part: 1, week: 1, level: 1, title: 'Tủ điện, cảm biến và làm quen PLC Studio', machineId: null },
-  { id: 'L02', part: 1, week: 2, level: 1, title: 'Logic bit và mạch động cơ', machineId: null },
-  { id: 'L03', part: 1, week: 3, level: 2, title: 'Timer IEC — khởi động sao–tam giác', machineId: null },
-  { id: 'L04', part: 1, week: 4, level: 2, title: 'Counter, so sánh, di chuyển dữ liệu', machineId: null },
+  { id: 'L01', part: 1, week: 1, level: 1, title: 'Tủ điện, cảm biến và làm quen PLC Studio', machineId: 'trainer' },
+  { id: 'L02', part: 1, week: 2, level: 1, title: 'Logic bit và mạch động cơ', machineId: 'motor' },
+  { id: 'L03', part: 1, week: 3, level: 2, title: 'Timer IEC — khởi động sao–tam giác', machineId: 'stardelta' },
+  { id: 'L04', part: 1, week: 4, level: 2, title: 'Counter, so sánh, di chuyển dữ liệu', machineId: 'counter' },
   { id: 'L05', part: 2, week: 5, level: 1, title: 'Linh kiện khí nén, điều khiển 1 xi lanh (máy dập 2 tay)', machineId: null },
   { id: 'L06', part: 2, week: 5, level: 2, title: 'Trình tự xi lanh, giám sát lỗi — bàn xoay chia 4 vị trí', machineId: 'indexer' },
   { id: 'L07', part: 2, week: 6, level: 2, title: 'Cấp phôi từ ổ chứa', machineId: 'feeder' },
@@ -36,6 +39,10 @@ export const COURSE = [
 ];
 
 export const MACHINE_TITLES = {
+  trainer: 'Bàn thực hành PLC',
+  motor: 'Cửa cuốn — động cơ đảo chiều',
+  stardelta: 'Máy nén khí sao–tam giác',
+  counter: 'Băng tải đếm sản phẩm',
   feeder: 'Bộ cấp phôi từ ổ chứa',
   escapement: 'Băng tải tích lũy + tách thùng',
   diverter: 'Hệ phân phối thùng 3 làn',

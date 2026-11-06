@@ -791,7 +791,7 @@ class Machine:
         self.nodes = {}            # name -> dict(origin, parts, meta, quality)
         self.order = []
         self.refs = {}
-        self.quality = {}
+        self.quality = {'static_ink': (0.25, 0.5), 'static_inkw': (0.25, 0.5)}
 
     def st(self, parts):
         for s, c in parts:
@@ -842,6 +842,8 @@ class Machine:
         objs = self.build(doc)
         meta = {n: self.nodes[n]['meta'] for n in self.order}
         info = dict(title=self.title, accent=self.accent, refs=self.refs)
+        for k in ('previewEye', 'previewZoom', 'focusFC'):
+            if getattr(self, k, None) is not None: info[k] = getattr(self, k)
         if extra_meta: info.update(extra_meta)
         return export_machine(doc, self.id, objs, meta, info, camera, self.quality)
 
@@ -943,10 +945,13 @@ def tessellate(obj, lin=0.6, ang=0.45, detail=1.0):
         out[h] = (np.concatenate(Ps), np.concatenate(Ns), np.concatenate(Fs))
     return out
 
-def write_glb(objs, path, root_name, belts=None, quality=None):
-    """objs: FreeCAD objects (identity rotation). belts: {label: FC direction vector}."""
+def write_glb(objs, path, root_name, belts=None, quality=None, uvfaces=None):
+    """objs: FreeCAD objects (identity rotation). belts: {label: FC direction vector}.
+    uvfaces: {label: (uAxisFC, vAxisFC, w, h)} -> TEXCOORD_0 0..1 across a face centred on the node origin
+    (u = right, v = up, glTF convention: v measured downward = 1 - up)."""
     import numpy as np
     belts = belts or {}
+    uvfaces = uvfaces or {}
     quality = quality or {}
     blob = bytearray()
     views, accs, meshes, nodes, mats = [], [], [], [], []
@@ -1008,6 +1013,11 @@ def write_glb(objs, path, root_name, belts=None, quality=None):
                 u = P.dot(d) / 1000.0
                 v = (P.dot(perp) + P[:, 2]) / 1000.0
                 attrs['TEXCOORD_0'] = add_acc(np.stack([u, v], axis=1).astype(np.float32), 5126, 'VEC2', 34962)
+            elif o.Label in uvfaces:
+                ua, va, fw, fh = uvfaces[o.Label]
+                u = P.dot(np.array(ua, dtype=float)) / fw + 0.5
+                v = 0.5 - P.dot(np.array(va, dtype=float)) / fh
+                attrs['TEXCOORD_0'] = add_acc(np.stack([u, v], axis=1).astype(np.float32), 5126, 'VEC2', 34962)
             idx = F.reshape(-1)
             if len(P) < 65535:
                 ia = add_acc(idx.astype(np.uint16), 5123, 'SCALAR', 34963)
@@ -1054,12 +1064,21 @@ def export_machine(doc, mid, objs, node_meta, info=None, camera=None, quality=No
     os.makedirs(os.path.join(MODELS, 'src'), exist_ok=True)
     os.makedirs(os.path.join(MODELS, 'preview'), exist_ok=True)
     belts = {n: m.get('uvAxisFC', [1, 0, 0]) for n, m in node_meta.items() if m.get('type') == 'belt'}
-    res = write_glb(objs, os.path.join(MODELS, mid + '.glb'), mid, belts, quality)
+    uvf = {n: (m['uAxisFC'], m['vAxisFC'], m['faceSizeMM'][0], m['faceSizeMM'][1])
+           for n, m in node_meta.items() if m.get('faceSizeMM')}
+    res = write_glb(objs, os.path.join(MODELS, mid + '.glb'), mid, belts, quality, uvf)
     (x0, y0, z0), (x1, y1, z1) = res['bbox_fc']
     bb3 = [[x0 / 1000, z0 / 1000, -y1 / 1000], [x1 / 1000, z1 / 1000, -y0 / 1000]]
     bb3 = [[round(v, 4) for v in p] for p in bb3]
+    eye = info.get('previewEye', (-0.8, -1.3, 0.75))
+    zoom = info.get('previewZoom', 0.66)
+    fbb = None
+    if info.get('focusFC'):
+        (fx0, fy0, fz0), (fx1, fy1, fz1) = info['focusFC']
+        fbb = App.BoundBox(fx0, fy0, fz0, fx1, fy1, fz1)
     if camera is None:
-        camera = camera_for(bb3)
+        cb = bb3 if fbb is None else [[fx0 / 1000, fz0 / 1000, -fy1 / 1000], [fx1 / 1000, fz1 / 1000, -fy0 / 1000]]
+        camera = camera_for(cb, eye=(eye[0], eye[2], -eye[1]), fill=0.8 * zoom / 0.66)
     mpath = os.path.join(MODELS, 'manifest.json')
     try:
         with open(mpath) as f:
@@ -1084,7 +1103,8 @@ def export_machine(doc, mid, objs, node_meta, info=None, camera=None, quality=No
         if m:
             entry['nodes'][n] = m
     man['machines'][mid] = entry
-    order = ['feeder', 'escapement', 'diverter', 'erector', 'sealer', 'pickplace', 'indexer', 'palletizer']
+    order = ['feeder', 'escapement', 'diverter', 'erector', 'sealer', 'pickplace', 'indexer', 'palletizer',
+             'trainer', 'motor', 'stardelta', 'counter']
     man['machines'] = dict(sorted(man['machines'].items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99))
     with open(mpath, 'w') as f:
         json.dump(man, f, indent=1)
@@ -1095,22 +1115,23 @@ def export_machine(doc, mid, objs, node_meta, info=None, camera=None, quality=No
             os.remove(f)
     except Exception as e:
         print('FCStd save failed', e)
-    save_preview(doc, os.path.join(MODELS, 'preview', mid + '.png'))
+    save_preview(doc, os.path.join(MODELS, 'preview', mid + '.png'), eye, zoom, fbb)
     print('%s: %d tris, %.1f KB' % (mid, res['tris'], res['size'] / 1024.0))
     return res
 
-def save_preview(doc, path):
+def save_preview(doc, path, eye=(-0.8, -1.3, 0.75), zoom=0.66, bb=None):
     if not App.GuiUp:
         return
     import FreeCADGui as Gui
     try:
         Gui.ActiveDocument = Gui.getDocument(doc.Name)
         v = Gui.ActiveDocument.ActiveView
-        bb = App.BoundBox()
-        for o in doc.Objects:
-            if o.Label != 'static_base' and hasattr(o, 'Shape'):
-                bb.add(o.Shape.BoundBox)
-        set_view(v, bb=bb)
+        if bb is None:
+            bb = App.BoundBox()
+            for o in doc.Objects:
+                if o.Label != 'static_base' and hasattr(o, 'Shape'):
+                    bb.add(o.Shape.BoundBox)
+        set_view(v, eye=eye, zoom=zoom, bb=bb)
         v.saveImage(path, 1200, 800, 'White')
     except Exception as e:
         print('preview failed', e)
@@ -1191,3 +1212,332 @@ def pose(doc, mid, values=1.0):
             pl.Rotation = App.Rotation(V(*meta['axisFC']), meta['travel'] * val(n))
         objs[n].Placement = pl
     doc.recompute()
+
+
+# ============================================================================= Phần 1 (L01-L04) parts
+# Electrical / operator devices. Most functions work in a "face frame": local x = right (seen from
+# the front), local y = up on the surface, local z = out of the surface (towards the operator),
+# surface at local z = 0.  face_pl(p, n) builds that frame.
+PAL.update({
+    'lens_red':    ('#8E1B22', 0.00, 0.25),   # pilot lamp lenses (dark = off; app adds emissive)
+    'lens_yellow': ('#A07C0C', 0.00, 0.25),
+    'lens_green':  ('#17703A', 0.00, 0.25),
+    'lens_blue':   ('#174A94', 0.00, 0.25),
+    'lens_amber':  ('#A0600A', 0.00, 0.25),
+    'lcd':         ('#0E1012', 0.10, 0.20),   # LED display face
+    'seg':         ('#3A1212', 0.00, 0.40),   # unlit 7-segment
+    'plc':         ('#3F474C', 0.15, 0.55),   # S7-1200 housing
+    'petrol':      ('#00838A', 0.10, 0.45),   # petrol-teal front strip
+    'ctr':         ('#5E656C', 0.10, 0.55),   # contactor / relay housings
+    'carton':      ('#C49A6C', 0.00, 0.85),
+    'tank':        ('#A32A2A', 0.30, 0.35),   # compressor tank red
+    'iron':        ('#3C4146', 0.55, 0.50),   # cast iron
+    'copper':      ('#B87333', 0.85, 0.30),
+    'wall':        ('#DCD6CB', 0.00, 0.90),
+    'door':        ('#BCC4CC', 0.70, 0.35),   # galvanised shutter slats
+    'galv':        ('#C2C7C2', 0.75, 0.40),   # galvanised mounting plate
+    'wood':        ('#C8A27A', 0.00, 0.85),
+    'ink':         ('#16191C', 0.00, 0.60),   # printed / engraved text (flat faces)
+    'inkw':        ('#FBFBFB', 0.00, 0.60),
+})
+
+LENS = {'red': 'lens_red', 'yellow': 'lens_yellow', 'green': 'lens_green', 'blue': 'lens_blue', 'amber': 'lens_amber'}
+LAMP_HEX = {'red': '#e53935', 'yellow': '#fdd835', 'green': '#43a047', 'blue': '#1e88e5', 'amber': '#ffb300'}
+
+def face_pl(p, n, up=V(0, 0, 1)):
+    """face frame at p: local z = n (out of surface), local x = right seen from the front, local y = up"""
+    n = unit(n)
+    if abs(V(up).dot(n)) > 0.95:
+        up = V(0, 1, 0)
+    return frame_pl(p, V(up).cross(n), n)
+
+def lp(pl, x, y, z=0.0):
+    return pl.multVec(V(x, y, z))
+
+def ldir(pl, x, y, z):
+    return pl.Rotation.multVec(V(x, y, z))
+
+_FONT = None
+def _font():
+    global _FONT
+    if _FONT is None:
+        import glob
+        c = glob.glob('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf') + \
+            glob.glob('/usr/share/fonts/**/*Sans*Bold*.ttf', recursive=True) + glob.glob('/usr/share/fonts/**/*.ttf', recursive=True)
+        _FONT = c[0] if c else ''
+    return _FONT
+
+def text(pl, s, x, y, h=8.0, col='black', t=0.4, align='c', z=0.0):
+    """raised text on a face frame, baseline-centre (align c) / left (l) at local (x, y)"""
+    f = _font()
+    if not f or not s.strip():
+        return []
+    try:
+        ws = Part.makeWireString(s, os.path.dirname(f) + '/', os.path.basename(f), h, 0)
+    except Exception:
+        return []
+    faces = []
+    for wl in ws:
+        if not wl:
+            continue
+        try:
+            fc = Part.makeFace(wl, 'Part::FaceMakerBullseye')
+            faces += fc.Faces
+        except Exception:
+            pass
+    if not faces:
+        return []
+    ff = []
+    for fc in faces:                     # flat glyph faces only (no side walls -> few triangles), facing +z
+        if fc.normalAt(0, 0).z < 0:
+            fc = fc.reversed()
+        ff.append(fc)
+    comp = Part.makeCompound(ff)
+    bb = comp.BoundBox
+    dx = x - (bb.XMin + bb.XMax) / 2 if align == 'c' else x - bb.XMin
+    comp.translate(V(dx, y, z + t))
+    comp.Placement = pl.multiply(comp.Placement)
+    return [(comp, {'black': 'ink', 'white': 'inkw'}.get(col, col))]
+
+def label_plate(pl, x, y, s, w=44, h=14, th=8.0):
+    """white engraved label plate centred at local (x, y)"""
+    return [(prism([(x - w / 2, y - h / 2), (x + w / 2, y - h / 2), (x + w / 2, y + h / 2), (x - w / 2, y + h / 2)], 1.2, pl), 'white')] + \
+        text(pl, s, x, y - th * 0.38, th, 'black', 0.3, z=1.2)
+
+def lbox(pl, x0, y0, z0, x1, y1, z1, col, ch=0.0):
+    """box in face-frame coordinates"""
+    s = box(x0, y0, z0, x1, y1, z1, ch)
+    s.Placement = pl.multiply(s.Placement)
+    return (s, col)
+
+def lcyl(pl, r, x, y, z0, z1, col, ch=0.0):
+    return (cyl(r, lp(pl, x, y, z0), lp(pl, x, y, z1), ch), col)
+
+def lring(pl, r0, r1, x, y, z0, z1, col):
+    a, b = lp(pl, x, y, z0), lp(pl, x, y, z1)
+    return (cyl(r1, a, b).cut(cyl(r0, a - (b - a), b + (b - a))), col)
+
+def pushbutton(pl, x, y, col='green'):
+    """22 mm flush pushbutton (chrome bezel). -> (static, cap_parts, cap_origin, press_axis)"""
+    st = [lcyl(pl, 15, x, y, 0, 2.5, 'nickel', ch=0.8), lring(pl, 12.3, 14.5, x, y, 2.5, 5, 'black')]
+    cap = [lcyl(pl, 12, x, y, 2.5, 9, col, ch=1.5)]
+    return st, cap, lp(pl, x, y, 9), ldir(pl, 0, 0, -1)
+
+def selector(pl, x, y, rest_deg=45.0):
+    """2-position selector, black knob; knob lever built at rest angle rest_deg (CCW from up).
+    -> (static, knob_parts, pivot, axis_out)"""
+    st = [lcyl(pl, 15, x, y, 0, 2.5, 'nickel', ch=0.8), lcyl(pl, 13, x, y, 2.5, 6, 'black')]
+    a = math.radians(rest_deg)
+    kpl = pl.multiply(App.Placement(V(x, y, 0), App.Rotation(V(0, 0, 1), rest_deg)))
+    knob = [lcyl(pl, 11, x, y, 6, 9, 'black', ch=1)]
+    knob.append(lbox(kpl, -4, -14, 9, 4, 14, 21, 'black', ch=1.5))
+    knob.append(lbox(kpl, -1, 9, 21, 1, 13, 21.4, 'white'))       # white pointer mark
+    return st, knob, lp(pl, x, y, 0), ldir(pl, 0, 0, 1)
+
+def pilot_lamp(pl, x, y, color='red'):
+    """22 mm LED pilot light. -> (static, lens_parts, lens_centre)"""
+    st = [lcyl(pl, 15, x, y, 0, 2.5, 'nickel', ch=0.8)]
+    lens = [lcyl(pl, 12, x, y, 2.5, 13, LENS[color], ch=4)]
+    return st, lens, lp(pl, x, y, 8)
+
+def buzzer(pl, x, y):
+    """panel buzzer Ø30 with red flashing ring. -> (static, ring_parts, ring_centre)"""
+    st = [lcyl(pl, 15, x, y, 0, 2.5, 'nickel', ch=0.8), lcyl(pl, 12.5, x, y, 2.5, 14, 'black', ch=1.5)]
+    for r in (3, 6.5, 10):
+        st.append(lring(pl, r - 1, r, x, y, 14, 14.6, 'valve'))
+    ring = [lring(pl, 12.6, 16.5, x, y, 2.5, 10, 'lens_red')]
+    return st, ring, lp(pl, x, y, 8)
+
+def din_rail(pl, x0, x1, y, z=0.0):
+    return [lbox(pl, x0, y - 17.5, z, x1, y + 17.5, z + 1.5, 'nickel'),
+            lbox(pl, x0, y - 12.5, z + 1.5, x1, y - 11, z + 7.5, 'nickel'),
+            lbox(pl, x0, y + 11, z + 1.5, x1, y + 12.5, z + 7.5, 'nickel')]
+
+def s7_1200(pl, x, y, z=7.5):
+    """S7-1200 CPU 1214C (110 x 100 x 75) centred at local (x, y) on a DIN rail at depth z"""
+    p = [lbox(pl, x - 55, y - 50, z, x + 55, y + 50, z + 62, 'plc', ch=2),
+         lbox(pl, x - 52, y + 20, z + 62, x + 52, y + 47, z + 75, 'plc', ch=2),      # top terminal cover
+         lbox(pl, x - 52, y - 47, z + 62, x + 52, y - 22, z + 75, 'plc', ch=2),      # bottom terminal cover
+         lbox(pl, x - 52, y - 20, z + 62, x - 20, y + 18, z + 72, 'petrol', ch=1.5),  # front flap
+         lbox(pl, x - 18, y - 20, z + 62, x + 52, y + 18, z + 70, 'valve', ch=1)]     # LED window
+    for i in range(14):   # DI LEDs
+        p.append(lbox(pl, x - 12 + i * 4.4, y + 9, z + 70, x - 9.5 + i * 4.4, y + 12, z + 70.6, 'green'))
+    for i in range(10):   # DQ LEDs
+        p.append(lbox(pl, x - 12 + i * 4.4, y - 12, z + 70, x - 9.5 + i * 4.4, y - 9, z + 70.6, 'green'))
+    for i, c in enumerate(('green', 'amber', 'amber')):
+        p.append(lbox(pl, x - 46, y + 10 - i * 8, z + 72, x - 40, y + 14 - i * 8, z + 72.6, c))
+    p += text(pl, 'PLC', x - 36, y - 15, 5, 'white', 0.3, z=z + 72)
+    p += text(pl, 'CPU 1214C', x + 17, y - 18, 5, 'white', 0.3, z=z + 70)
+    p.append(lbox(pl, x - 36, y - 49, z + 30, x - 24, y - 50.5, z + 45, 'black'))      # RJ45
+    return p
+
+def psu(pl, x, y, w=55, z=7.5, s='24V DC'):
+    p = [lbox(pl, x - w / 2, y - 45, z, x + w / 2, y + 45, z + 58, 'cabinet', ch=2),
+         lbox(pl, x - w / 2 + 4, y + 25, z + 58, x + w / 2 - 4, y + 42, z + 63, 'valve', ch=1),
+         lbox(pl, x - w / 2 + 4, y - 42, z + 58, x + w / 2 - 4, y - 25, z + 63, 'valve', ch=1),
+         lbox(pl, x + w / 2 - 12, y + 10, z + 58, x + w / 2 - 7, y + 14, z + 59, 'green')]
+    p += text(pl, s, x - 3, y - 5, 6, 'black', 0.3, z=z + 58)
+    return p
+
+def terminals(pl, x0, n, y, z=7.5, pitch=6.2, cols=('valve',)):
+    p = []
+    for i in range(n):
+        c = cols[i % len(cols)]
+        xa = x0 + i * pitch
+        p.append(lbox(pl, xa, y - 30, z, xa + pitch - 0.4, y + 30, z + 32, c))
+        p.append(lbox(pl, xa + 1, y - 26, z + 32, xa + pitch - 1.4, y + 26, z + 40, c))
+    p.append(lbox(pl, x0 + n * pitch, y - 30, z, x0 + n * pitch + 8, y + 30, z + 36, 'inox', ch=0.8))
+    return p
+
+def mcb(pl, x, y, poles=1, z=7.5, col='white'):
+    w = 18 * poles
+    p = [lbox(pl, x - w / 2, y - 45, z, x + w / 2, y + 45, z + 45, col, ch=1),
+         lbox(pl, x - w / 2 + 1, y - 22, z + 45, x + w / 2 - 1, y + 22, z + 68, col, ch=1),
+         lbox(pl, x - w / 2 + 3, y - 2, z + 68, x + w / 2 - 3, y + 12, z + 78, 'black', ch=1),   # toggle (ON)
+         lbox(pl, x - w / 2 + 2, y - 18, z + 68, x + w / 2 - 2, y - 10, z + 68.5, 'btnblue')]
+    return p
+
+def contactor(pl, x, y, z=7.5, w=45):
+    """AC contactor (45 x 85 x 90) with status window. -> (static, indicator_parts, indicator_centre)"""
+    p = [lbox(pl, x - w / 2, y - 42, z, x + w / 2, y + 42, z + 70, 'ctr', ch=1.5),
+         lbox(pl, x - w / 2 + 2, y - 26, z + 70, x + w / 2 - 2, y + 26, z + 88, 'ctr', ch=1.5),
+         lbox(pl, x - w / 2 + 3, y - 40, z + 70, x + w / 2 - 3, y - 28, z + 74, 'black'),
+         lbox(pl, x - w / 2 + 3, y + 28, z + 70, x + w / 2 - 3, y + 40, z + 74, 'black'),
+         lbox(pl, x - w / 2 + 4, y + 8, z + 88, x + w / 2 - 4, y + 22, z + 89, 'white')]    # label
+    for i in (-1, 0, 1):
+        p.append(lcyl(pl, 2.8, x + i * 13, y + 35, z + 74, z + 75.5, 'nickel'))
+        p.append(lcyl(pl, 2.8, x + i * 13, y - 35, z + 74, z + 75.5, 'nickel'))
+    ind = [lbox(pl, x - 9, y - 16, z + 87, x + 9, y + 2, z + 91, 'lens_green', ch=1)]
+    return p, ind, lp(pl, x, y - 7, z + 91)
+
+def overload(pl, x, y, z=7.5, w=45):
+    """thermal overload relay under a contactor. -> (static, led_pos)"""
+    p = [lbox(pl, x - w / 2, y - 30, z, x + w / 2, y + 30, z + 75, 'ctr', ch=1.5),
+         lcyl(pl, 7, x - 8, y + 5, z + 75, z + 79, 'btnblue', ch=1),       # current dial
+         lcyl(pl, 5, x + 10, y + 5, z + 75, z + 81, 'red', ch=1),          # reset
+         lbox(pl, x - w / 2 + 4, y - 24, z + 75, x + w / 2 - 4, y - 12, z + 76, 'white')]
+    return p, lp(pl, x + 12, y - 18, z + 78)
+
+def gauge(pl, x, y, R=50, sweep=-270.0, zero_deg=225.0, face_z=0.0, depth=30.0, zones=None, ticks=11,
+          bezel='nickel', case='black', label=None):
+    """round analogue gauge on a face frame. zero_deg = angle of the zero mark (CCW from local +x),
+    sweep = signed degrees (negative = clockwise). zones: [(f0, f1, col)] coloured arcs (fractions).
+    -> (static, needle_parts, pivot_world, axis_out_world).  Needle points to zero at rest."""
+    z0 = face_z
+    if case:
+        st = [lcyl(pl, R + 4, x, y, z0, z0 + depth, case, ch=2),
+              lring(pl, R, R + 5, x, y, z0 + depth, z0 + depth + 4, bezel),
+              lcyl(pl, R, x, y, z0 + depth - 1, z0 + depth, 'white')]
+    else:                    # caller draws case + face (e.g. square panel meter); face at z0 + depth
+        st = []
+    zf = z0 + depth
+    def ang(f): return math.radians(zero_deg + sweep * f)
+    for (f0, f1, c) in (zones or []):
+        n = max(2, int(abs(sweep) * (f1 - f0) / 6))
+        for i in range(n):
+            a = ang(f0 + (f1 - f0) * (i + 0.5) / n)
+            seg = abs(math.radians(sweep) * (f1 - f0) / n) * R * 0.78 + 0.6
+            tpl = pl.multiply(App.Placement(V(x, y, 0), App.Rotation(V(0, 0, 1), math.degrees(a))))
+            st.append(lbox(tpl, R * 0.70, -seg / 2, zf, R * 0.86, seg / 2, zf + 0.3, c))
+    for i in range(ticks):
+        a = math.degrees(ang(i / (ticks - 1)))
+        tpl = pl.multiply(App.Placement(V(x, y, 0), App.Rotation(V(0, 0, 1), a)))
+        st.append(lbox(tpl, R * 0.78, -0.9, zf, R * 0.95, 0.9, zf + 0.5, 'black'))
+        if i < ticks - 1:
+            a2 = math.degrees(ang((i + 0.5) / (ticks - 1)))
+            tpl = pl.multiply(App.Placement(V(x, y, 0), App.Rotation(V(0, 0, 1), a2)))
+            st.append(lbox(tpl, R * 0.86, -0.5, zf, R * 0.95, 0.5, zf + 0.5, 'black'))
+    if label:
+        st += text(pl, label, x, y - R * 0.45, R * 0.18, 'black', 0.3, z=zf)
+    if case:
+        st.append((cyl(R, lp(pl, x, y, zf + 6), lp(pl, x, y, zf + 7)), 'glass'))   # cover glass
+    npl = pl.multiply(App.Placement(V(x, y, 0), App.Rotation(V(0, 0, 1), zero_deg)))
+    needle = [(prism([(-R * 0.18, -2.2), (R * 0.84, -0.5), (R * 0.84, 0.5), (-R * 0.18, 2.2)], 1.0,
+                     npl.multiply(App.Placement(V(0, 0, zf + 2), App.Rotation()))), 'red'),
+              lcyl(pl, R * 0.08, x, y, zf + 1.5, zf + 4, 'black', ch=0.5)]
+    return st, needle, lp(pl, x, y, zf), ldir(pl, 0, 0, 1)
+
+SEG7 = {'a': (0, 1, 1, 0), 'b': (1, 1, 0, 1), 'c': (1, 0, 0, 1), 'd': (0, 0, 1, 0),
+        'e': (0, 0, 0, 1), 'f': (0, 1, 0, 1), 'g': (0, 0.5, 1, 0)}
+
+def seg7_digit(pl, x, y, h, z, col='seg'):
+    """unlit '8.' seven-segment digit, lower-left corner at local (x, y), height h"""
+    w = h * 0.55; t = h * 0.12; p = []
+    for k, (cx, cy, horiz, half) in {'a': (0.5, 1, 1, 0), 'g': (0.5, 0.5, 1, 0), 'd': (0.5, 0, 1, 0),
+                                     'f': (0, 0.75, 0, 0), 'b': (1, 0.75, 0, 0), 'e': (0, 0.25, 0, 0),
+                                     'c': (1, 0.25, 0, 0)}.items():
+        px, py = x + cx * w + (1 - cy) * h * 0.08, y + cy * h
+        if horiz:
+            L = w - t * 1.2
+            pts = [(px - L / 2, py), (px - L / 2 + t / 2, py + t / 2), (px + L / 2 - t / 2, py + t / 2),
+                   (px + L / 2, py), (px + L / 2 - t / 2, py - t / 2), (px - L / 2 + t / 2, py - t / 2)]
+        else:
+            L = h / 2 - t * 1.2
+            pts = [(px, py - L / 2), (px + t / 2, py - L / 2 + t / 2), (px + t / 2, py + L / 2 - t / 2),
+                   (px, py + L / 2), (px - t / 2, py + L / 2 - t / 2), (px - t / 2, py - L / 2 + t / 2)]
+        p.append((prism(pts, 0.4, pl.multiply(App.Placement(V(0, 0, z), App.Rotation()))), col))
+    p.append(lcyl(pl, t * 0.5, x + w + t * 0.9, y + t * 0.5, z, z + 0.4, col))
+    return p
+
+def cabinet(p, facing, w, h, d, window=None, hinge='left', col='cabinet'):
+    """wall/floor electrical cabinet; p = bottom-centre of the BACK face.
+    window: (x0, y0, x1, y1) door-local window rect (door frame local, origin door bottom-left) -> glass.
+    -> dict(static, glass, pl_plate (face frame on the mounting plate, origin plate centre),
+            pl_door (face frame on the door outer face, origin door centre))"""
+    f = unit(facing)
+    pl = face_pl(p, f)
+    st, gl = [], []
+    t = 1.5
+    st.append(lbox(pl, -w / 2, 0, 0, w / 2, h, d - 22, col, ch=4))          # body
+    st.append(lbox(pl, -w / 2 + 25, 25, d - 22, w / 2 - 25, h - 25, d - 21, 'black'))   # gasket line
+    # door frame (outer face at z = d)
+    if window:
+        x0, y0, x1, y1 = window
+        door = box(-w / 2 + 3, 3, d - 20, w / 2 - 3, h - 3, d, ch=3)
+        cut = box(-w / 2 + x0, y0, d - 25, -w / 2 + x1, y1, d + 5, ch=0)
+        door = door.cut(cut)
+        door.Placement = pl.multiply(door.Placement)
+        st.append((door, col))
+        gl.append(lbox(pl, -w / 2 + x0 - 6, y0 - 6, d - 12, -w / 2 + x1 + 6, y1 + 6, d - 8, 'glass'))
+    else:
+        st.append(lbox(pl, -w / 2 + 3, 3, d - 20, w / 2 - 3, h - 3, d, col, ch=3))
+    # handle + hinges
+    hx = w / 2 - 28 if hinge == 'left' else -w / 2 + 28
+    st.append(lbox(pl, hx - 9, h / 2 - 50, d, hx + 9, h / 2 + 50, d + 18, 'black', ch=4))
+    st.append(lcyl(pl, 7, hx, h / 2 + 30, d + 18, d + 22, 'nickel'))
+    gx = -w / 2 - 2 if hinge == 'left' else w / 2 + 2
+    for yy in (h * 0.15, h * 0.85):
+        st.append(lbox(pl, gx - 5, yy - 30, d - 30, gx + 5, yy + 30, d - 4, 'black', ch=2))
+    # mounting plate
+    st.append(lbox(pl, -w / 2 + 30, 30, 20, w / 2 - 30, h - 30, 23, 'galv'))
+    # gland plate / cable entries on the bottom
+    for i in range(3):
+        gx2 = -w / 4 + i * w / 4
+        st.append((cyl(9, lp(pl, gx2, 0, d * 0.45), lp(pl, gx2, -14, d * 0.45)), 'black'))
+    pp = pl.multiply(App.Placement(V(0, h / 2, 23), App.Rotation()))
+    pd = pl.multiply(App.Placement(V(0, h / 2, d), App.Rotation()))
+    return dict(static=st, glass=gl, pl_plate=pp, pl_door=pd, pl=pl)
+
+def prox_m18(p, d, length=80):
+    """M18 inductive sensor; returns (parts, led)"""
+    return prox(p, d, length=length, r=9.0, bracket=False)
+
+def through_beam(p, d, up=V(0, 0, 1), col='sensor'):
+    """one half of a through-beam pair (emitter or receiver) facing d. p = lens centre. -> (parts, led)"""
+    pl = face_pl(p, d, up)
+    parts = [lbox(pl, -15, -25, -40, 15, 25, 0, col, ch=2),
+             lbox(pl, -10, -6, -0.5, 10, 14, 0.8, 'black', ch=0.5),
+             lcyl(pl, 6, 0, -25, -20, -20, 'black')]
+    parts[-1] = (cyl(6, lp(pl, 0, -25, -20), lp(pl, 0, -37, -20)), 'black')
+    return parts, lp(pl, 0, 26, -12)
+
+def limit_switch(p, facing, lever_dir=V(0, 0, 1)):
+    """roller-lever limit switch body (30 x 60 x 30) at p (back centre) facing `facing`. -> (parts, led)"""
+    pl = face_pl(p, facing)
+    parts = [lbox(pl, -16, -30, 0, 16, 30, 32, 'ctr', ch=2),
+             lbox(pl, -14, 30, 2, 14, 40, 30, 'black', ch=1),
+             lcyl(pl, 6, 0, 18, 32, 40, 'nickel'),
+             lbox(pl, -3, 14, 38, 3, 60, 43, 'nickel', ch=0.8),
+             (cyl(9, lp(pl, -6, 58, 40.5), lp(pl, 6, 58, 40.5)), 'black'),
+             (cyl(5, lp(pl, 0, -30, 16), lp(pl, 0, -44, 16)), 'black')]
+    return parts, lp(pl, 9, -18, 32.5)

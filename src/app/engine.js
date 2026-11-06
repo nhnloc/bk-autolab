@@ -50,7 +50,7 @@ export function loadEngine() {
       if (realLabs && gradeMod?.gradeLab) {
         const r = await gradeMod.gradeLab(lab.raw || lab, project, { onProgress });
         const criteria = (r.checks || []).map((c) => ({ id: c.id, title: c.label, ok: !!c.pass, points: c.points, max: c.max, message: c.detail || '' }));
-        return { score: r.score, max: r.max, passed: r.score >= r.max * 0.5, criteria, stats: r.stats, log: r.log, at: Date.now() };
+        return { score: r.score, max: r.max, passed: typeof r.passed === 'boolean' ? r.passed : r.score >= r.max * 0.5, criteria, stats: r.stats, log: r.log, at: Date.now() };
       }
       if (typeof lab.grade === 'function') return lab.grade(project, eng);
       return null;
@@ -121,18 +121,21 @@ export function normLab(raw) {
 }
 
 /** Ghép khung khóa học (UI) với LABS của engine. Trả về danh sách lab chuẩn hóa. */
-export function mergeCourse(LABS) {
+export function mergeCourse(LABS, MACHINES) {
   const list = Array.isArray(LABS) ? LABS : Object.values(LABS || {});
+  // Máy chưa có trong engine (vd. engine đang được cập nhật) → coi như lab "Sắp có" thay vì để trang lab lỗi.
+  const ready = (mid) => !!mid && (!MACHINES || Object.keys(MACHINES).length === 0 || mid in MACHINES);
   const eng = list.map(normLab).filter(Boolean);
   const used = new Set();
   const out = COURSE.map((c) => {
     let e = eng.find((x) => x.id === c.id);
     if (!e && c.machineId) e = eng.find((x) => !used.has(x.id) && x.machineId === c.machineId);
     if (e) used.add(e.id);
-    return { ...c, ...(e || {}), id: c.id, engineId: e?.id || null, title: c.title, part: c.part, machineId: c.machineId || e?.machineId || null, hasContent: !!e };
+    const mid = c.machineId || e?.machineId || null;
+    return { ...c, ...(e || {}), id: c.id, engineId: e?.id || null, title: c.title, part: c.part, machineId: ready(mid) ? mid : null, plannedMachineId: mid, hasContent: !!e };
   });
   for (const e of eng) {
-    if (used.has(e.id)) continue;
+    if (used.has(e.id) || !ready(e.machineId)) continue;
     out.push({ week: null, level: 2, ...e, part: e.part || 2, engineId: e.id, hasContent: true });
   }
   return out;

@@ -39,9 +39,21 @@ export function createHmi({ m, getPlc, title }) {
     const W = 760, H = 330;
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'mimic', role: 'img', 'aria-label': t('hmi.overview') });
     dyn = [];
-    // băng tải
-    s.appendChild(svg('rect', { x: 30, y: 210, width: W - 60, height: 26, rx: 13, class: 'mm-belt' }));
-    for (let x = 50; x < W - 40; x += 40) s.appendChild(svg('line', { x1: x, y1: 212, x2: x, y2: 234, class: 'mm-belt-l' }));
+    // băng tải (chỉ khi máy có động cơ băng tải)
+    if (motors.length) {
+      s.appendChild(svg('rect', { x: 30, y: 210, width: W - 60, height: 26, rx: 13, class: 'mm-belt' }));
+      for (let x = 50; x < W - 40; x += 40) s.appendChild(svg('line', { x1: x, y1: 212, x2: x, y2: 234, class: 'mm-belt-l' }));
+    }
+    // đèn / contactor (máy không có xi lanh, vd. Phần 1)
+    if (!cyls.length) {
+      const lamps = outputs.filter((o) => o.type === 'Bool' && !/^(H_Run|H_Fault)$/.test(o.tag) && !motors.includes(o));
+      lamps.forEach((o, i) => {
+        const x = 60 + (i * (W - 120)) / Math.max(1, lamps.length - 1), y = 90;
+        const c = svg('circle', { cx: lamps.length > 1 ? x : W / 2, cy: y, r: 20, class: 'mm-lamp' });
+        s.append(c, svg('text', { x: lamps.length > 1 ? x : W / 2, y: y + 40, class: 'mm-s', 'text-anchor': 'middle' }, o.tag));
+        dyn.push(() => c.classList.toggle('on', !!ioValue(o, m, getPlc())));
+      });
+    }
     // động cơ
     motors.forEach((mo, i) => {
       const cx = 60 + i * 70, cy = 275;
@@ -82,7 +94,8 @@ export function createHmi({ m, getPlc, title }) {
     const kpi = h('div.hmi-kpis');
     dyn.push(() => {
       const st = m.stats || {};
-      kpi.replaceChildren(...['produced', 'rejected', 'cycleTimeMs'].filter((k) => k in st).map((k) => h('div.hmi-kpi', h('span', STAT_LABELS[k] || k), h('b', fmtValue(st[k])))));
+      const disp = (m.getVisual?.()?.displays || []).map((d) => h('div.hmi-kpi', h('span', d.label || d.id), h('b', `${fmtValue(d.value)}${d.unit ? ' ' + d.unit : ''}`)));
+      kpi.replaceChildren(...disp, ...['produced', 'rejected', 'cycleTimeMs'].filter((k) => k in st).map((k) => h('div.hmi-kpi', h('span', STAT_LABELS[k] || k), h('b', fmtValue(st[k])))));
     });
     return h('div.hmi-ov', s, kpi);
   }

@@ -11,6 +11,7 @@ function hasWebGL() {
 }
 import { createOperatorPanel } from './operatorPanel.js';
 import { createIoPanel } from './ioPanel.js';
+import { createTrend } from './readouts.js';
 
 export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPanel = false, splitKey = 'machine-v', compact = false }) {
   let lastVisual = null;
@@ -29,15 +30,25 @@ export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPa
   if (!viewer) { host.replaceChildren(); viewer = new Fallback2D(host, opts); views.hidden = true; }
   viewer.setSource(() => { lastVisual = m.getVisual(); return lastVisual; });
   viewer.getOutputs = () => m.outputs;
+  // Nút btn_<ID> trên mô hình 3D: nhấn nhả (momentary) hoặc mỗi click đảo trạng thái (latching/selector).
+  if (!readOnlyPanel) viewer.setButtonHandler?.({
+    press: (id, down) => { m.press(id, down); op.refresh(); },
+    kindOf: (id) => m.def?.buttons?.find((b) => b.id === id)?.kind, // không có → viewer dùng `kind` trong manifest, rồi 'momentary'
+    has: (id) => !!m.def?.buttons?.some((b) => b.id === id),
+  });
   viewer.load().then(() => { stage.querySelector('.viewer-loading')?.remove(); badge.hidden = !viewer.isPlaceholder; }).catch((e) => console.warn(e));
 
   const op = createOperatorPanel({ m, getVisual, readOnly: readOnlyPanel });
   const io = createIoPanel({ m, getPlc, allowOverride });
   const bottom = h('div.mv-bottom', op.el, io.el);
-  const el = compact ? h('div.machine-view.compact', stage, bottom) : h('div.machine-view', split({ dir: 'v', a: stage, b: bottom, ratio: 0.6, min: 140, key: splitKey }));
+  const trend = createTrend();
+  const top = h('div.mv-top', stage, trend.el);
+  const el = compact ? h('div.machine-view.compact', top, bottom) : h('div.machine-view', split({ dir: 'v', a: top, b: bottom, ratio: 0.6, min: 140, key: splitKey }));
 
   const timer = setInterval(() => {
+    try { lastVisual = m.getVisual(); } catch (e) { /* giữ trạng thái cũ */ }
     op.refresh(); io.refresh();
+    trend.update(lastVisual?.trend);
     const c = lastVisual?.crashed;
     crash.hidden = !c; if (c) crash.textContent = '⚠ ' + t('op.crashed') + ' ' + (c.message || '');
   }, 100);

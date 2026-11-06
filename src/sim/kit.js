@@ -92,6 +92,7 @@ export const PANEL_BUTTONS = [
  */
 export class Machine {
   constructor(def) {
+    this.panelDefaults = def.panelDefaults || {};
     this.def = {
       ...def,
       ioMap: { inputs: [...PANEL_INPUTS, ...def.ioMap.inputs], outputs: [...PANEL_OUTPUTS, ...def.ioMap.outputs] },
@@ -108,7 +109,7 @@ export class Machine {
     this.events = [];        // nhật ký sự cố cơ khí (va chạm, kẹt…) cho HMI & chấm bài
     this.items = [];
     this.time = 0;
-    this.panel = { Start: false, Stop: false, Reset: false, EStop: false, AutoMan: true };
+    this.panel = { Start: false, Stop: false, Reset: false, EStop: false, AutoMan: true, ...this.panelDefaults };
     this.stats = { produced: 0, rejected: 0, defects: 0, crashes: 0, cycleTimeMs: 0 };
     this.crashed = null;     // máy đứng do va chạm: { message }
   }
@@ -212,6 +213,7 @@ export class Machine {
   }
   visualBase() {
     const parts = {};
+    for (const b of this.def.buttons) if (!PANEL_BUTTONS.some((x) => x.id === b.id)) parts['btn_' + b.id] = this.panel[b.id] ? 1 : 0;
     for (const [k, c] of Object.entries(this.cyl || {})) parts[c.node || `cyl_${k}_rod`] = c.pos;
     return parts;
   }
@@ -225,6 +227,7 @@ export class Machine {
       belts: this.beltOffsets ? this.beltOffsets() : {},
       crashed: this.crashed,
       lamps: { run: !!this.outputs.H_Run, fault: !!this.outputs.H_Fault },
+      outs: Object.fromEntries(this.def.ioMap.outputs.filter((o) => !o.type || o.type === 'Bool').map((o) => [o.tag, !!this.outputs[o.tag]])),
     };
   }
   visualParts() { return this.visualBase(); }

@@ -1,7 +1,9 @@
 // Bảng nút vận hành 2D: Start/Stop/Reset, nấm dừng khẩn (giữ trạng thái), công tắc Auto/Man, đèn Run/Fault,
-// cộng các nút riêng của máy (Refill, Feed, Door…). Gọi m.press(id, down).
+// cộng các nút riêng của máy (S1/S2/S3, SW1, công tắc "đưa vật vào"…), bảng LED 7 đoạn (displays).
+// Gọi m.press(id, down).
 import { h } from '../dom.js';
 import { t } from '../i18n.js';
+import { createDisplayRow } from './readouts.js';
 
 const DEFAULT_BUTTONS = [
   { id: 'Start', label: 'Start', kind: 'momentary', color: 'green' },
@@ -10,6 +12,7 @@ const DEFAULT_BUTTONS = [
   { id: 'EStop', label: 'Dừng khẩn', kind: 'latching', color: 'estop' },
   { id: 'AutoMan', label: 'Auto / Man', kind: 'selector', color: 'black' },
 ];
+const MAIN_IDS = ['Start', 'Stop', 'Reset', 'EStop', 'AutoMan'];
 
 export function createOperatorPanel({ m, getVisual, readOnly = false }) {
   const buttons = (m.def?.buttons?.length ? m.def.buttons : DEFAULT_BUTTONS);
@@ -19,38 +22,57 @@ export function createOperatorPanel({ m, getVisual, readOnly = false }) {
   const lampFault = h('span.lamp.red', { role: 'img', 'aria-label': 'H_Fault' });
 
   const press = (id, down) => { try { m.press(id, down); } catch (e) { console.warn(e); } };
+  const isNc = (b) => !!b.nc && b.id !== 'Stop' && b.id !== 'EStop';
+  const label = (b) => {
+    const l = b.label || b.id;
+    return h('span.pb-l', { title: l }, l, isNc(b) && !/\bNC\b/.test(l) ? h('span.nc-tag', 'NC') : null);
+  };
 
   function momentary(b) {
-    const el = h('button.pb', { type: 'button', class: 'c-' + (b.color || 'grey'), title: b.label || b.id, disabled: readOnly, 'aria-label': b.label || b.id });
+    const el = h('button.pb', { type: 'button', class: 'c-' + (b.color || 'grey'), title: (b.label || b.id) + (b.nc ? ' (NC)' : ''), disabled: readOnly, 'aria-label': b.label || b.id });
     const down = (e) => { e.preventDefault(); el.classList.add('down'); press(b.id, true); el.setPointerCapture?.(e.pointerId); };
     const up = () => { if (!el.classList.contains('down')) return; el.classList.remove('down'); press(b.id, false); };
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
     el.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); el.classList.add('down'); press(b.id, true); } });
     el.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') up(); });
-    return h('div.pb-wrap', el, h('span.pb-l', b.label || b.id));
+    // nút có thể bị nhấn từ mô hình 3D → phản ánh trạng thái
+    els.push(() => { if (!el.classList.contains('down')) el.classList.toggle('ext', !!panel()[b.id]); });
+    return h('div.pb-wrap', el, label(b));
   }
-  function latching(b) {
+  function estop(b) {
     const el = h('button.estop', { type: 'button', 'aria-pressed': 'false', disabled: readOnly, title: t('op.estopTip'), 'aria-label': b.label || 'E-Stop',
       onclick: () => { press(b.id, true); press(b.id, false); refresh(); } }, h('span.estop-cap'));
     els.push(() => { const on = !!panel()[b.id]; el.setAttribute('aria-pressed', String(on)); el.classList.toggle('latched', on); });
     return h('div.pb-wrap', h('div.estop-ring', el), h('span.pb-l', b.label || 'E-Stop'));
   }
+  /** Công tắc giữ trạng thái (vd. "Đưa kim loại vào cảm biến"): nút bật/tắt có đèn báo. */
+  function toggle(b) {
+    const el = h('button.tgl', { type: 'button', 'aria-pressed': 'false', disabled: readOnly, title: (b.label || b.id) + ' — ' + t('op.toggleTip'), 'aria-label': b.label || b.id,
+      onclick: () => { press(b.id, true); press(b.id, false); refresh(); } }, h('span.tgl-led'), h('span.tgl-state'));
+    const st = el.querySelector('.tgl-state');
+    els.push(() => { const on = !!panel()[b.id]; el.setAttribute('aria-pressed', String(on)); el.classList.toggle('on', on); st.textContent = on ? 'ON' : 'OFF'; });
+    return h('div.pb-wrap.wide', el, label(b));
+  }
   function selector(b) {
-    const el = h('button.selsw', { type: 'button', disabled: readOnly, title: t('op.selTip'), 'aria-label': b.label || b.id,
+    const auto = b.id === 'AutoMan';
+    const pos = b.positions || (auto ? ['MAN', 'AUTO'] : ['0', '1']);
+    const el = h('button.selsw', { type: 'button', disabled: readOnly, title: auto ? t('op.selTip') : (b.label || b.id) + ' — ' + t('op.toggleTip'), 'aria-label': b.label || b.id,
       onclick: () => { press(b.id, true); press(b.id, false); refresh(); } }, h('span.selsw-knob'));
     const lbl = h('span.sel-pos');
-    els.push(() => { const auto = !!panel()[b.id]; el.classList.toggle('auto', auto); lbl.textContent = auto ? 'AUTO' : 'MAN'; el.setAttribute('aria-pressed', String(auto)); });
-    return h('div.pb-wrap', h('div.sel-scale', h('span', 'MAN'), h('span', 'AUTO')), el, h('span.pb-l', lbl));
+    els.push(() => { const on = !!panel()[b.id]; el.classList.toggle('auto', on); lbl.textContent = auto ? pos[on ? 1 : 0] : `${b.label || b.id}: ${pos[on ? 1 : 0]}`; el.setAttribute('aria-pressed', String(on)); });
+    return h('div.pb-wrap', h('div.sel-scale', h('span', pos[0]), h('span', pos[1])), el, h('span.pb-l', lbl));
   }
 
-  const main = buttons.filter((b) => ['Start', 'Stop', 'Reset', 'EStop', 'AutoMan'].includes(b.id));
+  const main = buttons.filter((b) => MAIN_IDS.includes(b.id));
   const extra = buttons.filter((b) => !main.includes(b));
-  const build = (b) => (b.kind === 'latching' ? latching(b) : b.kind === 'selector' ? selector(b) : momentary(b));
+  const build = (b) => (b.kind === 'latching' ? (b.color === 'estop' || b.id === 'EStop' ? estop(b) : toggle(b)) : b.kind === 'selector' ? selector(b) : momentary(b));
 
+  const displays = createDisplayRow();
   const crash = h('div.crash-msg', { role: 'alert', hidden: true });
   const el = h('section.op-panel', { 'aria-label': t('op.title') },
     h('div.op-title', t('op.title')),
+    displays.el,
     h('div.op-row', h('div.lamp-wrap', lampRun, h('span.pb-l', 'Run')), h('div.lamp-wrap', lampFault, h('span.pb-l', 'Fault')), ...main.map(build)),
     extra.length ? h('div.op-row.extra', ...extra.map(build)) : null,
     crash);
@@ -61,6 +83,7 @@ export function createOperatorPanel({ m, getVisual, readOnly = false }) {
     const run = v?.lamps ? v.lamps.run : !!(m.outputs?.H_Run ?? m.outputs?.['%Q0.0']);
     const fault = v?.lamps ? v.lamps.fault : !!(m.outputs?.H_Fault ?? m.outputs?.['%Q0.1']);
     lampRun.classList.toggle('on', !!run); lampFault.classList.toggle('on', !!fault);
+    displays.update(v?.displays);
     const c = v?.crashed || m.crashed;
     crash.hidden = !c; if (c) crash.textContent = t('op.crashed') + ' ' + (c.message || '');
   }

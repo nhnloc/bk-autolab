@@ -7,7 +7,14 @@ Mô phỏng PLC kiểu Siemens S7-1200 (LAD, SCL) chạy hoàn toàn trên trìn
 ```bash
 python3 -m http.server 8000
 ```
-Mở http://localhost:8000 — đăng nhập demo: sinh viên `20210101`, giảng viên `gv.tranminh`, mật khẩu bất kỳ.
+Mở http://localhost:8000. Sinh viên tự **đăng ký** (Họ tên, Lớp, MSSV) rồi đăng nhập bằng MSSV.
+Khi chạy trên máy (localhost) có thêm nút **Vào vai trò giảng viên**; bản trên web (GitHub Pages) chỉ có vai trò sinh viên.
+
+**Danh sách lớp** nằm trong `data/classes.json`. Giảng viên sửa ở trang *Danh sách lớp* (chạy trên máy) → *Tải xuống classes.json* → thay file trong repo → `git push`.
+
+**Lời giải mẫu** đặt ở `private/solutions.js` (không đưa lên git, xem `.gitignore`).
+
+> Trang web tĩnh không có server: đăng ký, bài làm, điểm lưu trên trình duyệt của từng sinh viên.
 Máy không có WebGL sẽ hiện sơ đồ 2D thay cho 3D.
 
 ## Kiểm thử
@@ -16,6 +23,7 @@ Máy không có WebGL sẽ hiện sơ đồ 2D thay cho 3D.
 node tests/plc.test.mjs          # lõi PLC (LAD, SCL, timer, FB/FC)
 node tests/labs.test.mjs         # 8 lời giải mẫu phải đạt 100/100
 node tests/lad-machine.test.mjs  # chương trình LAD trên máy cấp phôi
+node tests/part1-neg.test.mjs    # chương trình sai điển hình Phần 1 phải bị trừ điểm
 ```
 `tests/view3d.html?m=<machineId>` — trang xem 3D độc lập (chạy lời giải mẫu).
 
@@ -23,6 +31,10 @@ node tests/lad-machine.test.mjs  # chương trình LAD trên máy cấp phôi
 
 | Lab | Máy |
 |---|---|
+| L01 | Bàn thực hành PLC: nút, đèn, cảm biến PNP/NPN |
+| L02 | Cửa cuốn: tự giữ, đảo chiều, khóa liên động |
+| L03 | Máy nén khí: khởi động sao–tam giác |
+| L04 | Băng tải đếm 12 lon/thùng |
 | L06 | Bàn xoay chia 4 vị trí |
 | L07 | Bộ cấp phôi từ ổ chứa |
 | L08 | Bộ tách thùng trên băng tải tích lũy |
@@ -34,9 +46,9 @@ node tests/lad-machine.test.mjs  # chương trình LAD trên máy cấp phôi
 
 ## Cấu trúc
 
-- `src/plc/` soft-PLC · `src/sim/` mô phỏng máy · `src/labs/` nội dung lab, lời giải, chấm bài
+- `src/plc/` soft-PLC · `src/sim/` mô phỏng máy · `src/labs/` nội dung lab, bài giảng (`lectures.js`), chấm bài
 - `src/app/`, `src/scene/`, `styles/` giao diện · `assets/models/` mô hình GLB + nguồn FreeCAD
 - `tools/freecad/` script dựng mô hình (chạy trong FreeCAD) · `docs/CONTRACT.md`, `docs/CHANGES.md` đặc tả kỹ thuật
 - `vendor/three/` three.js r160 (MIT)
 
-Đăng nhập, lớp học, sổ điểm hiện là bản demo lưu trong trình duyệt; server tài khoản sinh viên là giai đoạn sau.
+Muốn giảng viên xem được bài nộp và điểm của cả lớp cần thêm server/dịch vụ lưu trữ — giai đoạn sau.

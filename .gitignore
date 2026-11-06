@@ -3,3 +3,4 @@ node_modules/
 *.FCStd1
 *.FCBak
 __pycache__/
+private/

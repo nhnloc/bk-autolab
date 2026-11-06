@@ -1,10 +1,10 @@
 // Nội dung các bài lab giai đoạn này (nhóm A + B1, B4) và hàm tạo project.
 import { MACHINES } from '../sim/index.js';
-// Lời giải tham khảo KHÔNG nằm trong repo/web: đặt ở <thư mục dự án>/private/solutions.js trên máy giảng viên.
+// Lời giải tham khảo KHÔNG nằm trong repo/web: đặt ở bk-autolab/private/solutions.js (đã .gitignore) trên máy giảng viên.
 let SOL = null;
 export async function loadSolutions() {
   if (SOL) return true;
-  try { SOL = await import('../../../private/solutions.js'); } catch { SOL = null; }
+  try { SOL = await import('../../private/solutions.js'); } catch { SOL = null; }
   return !!SOL;
 }
 
@@ -57,7 +57,154 @@ const SAFETY_TASKS = [
   'Đèn H_Run sáng khi máy đang chạy tự động; đèn H_Fault sáng khi một bước bị kẹt quá thời gian giám sát.',
 ];
 
+
+/* ---------------- Phần 1: PLC cơ bản ---------------- */
+const truth = async (c, label, max, combos, expect) => {
+  // combos: [{ S1:1, S2:0, ... }], expect(state) → { tag: bool }
+  const fails = [];
+  for (const st of combos) {
+    for (const [k, v] of Object.entries(st)) c.set(k, v);
+    await c.run(80);
+    const want = expect(st);
+    for (const [tag, w] of Object.entries(want)) if (!!c.out(tag) !== !!w) fails.push(`${Object.entries(st).map(([k, v]) => `${k}=${v ? 1 : 0}`).join(' ')} → ${tag} phải ${w ? 'BẬT' : 'TẮT'}`);
+    for (const k of Object.keys(st)) c.set(k, false);
+  }
+  await c.run(80);
+  c.add(label.id, label.text, max, fails.length === 0, fails.slice(0, 3).join('\n'));
+};
+const combos = (keys) => { const out = []; for (let i = 0; i < 1 << keys.length; i++) out.push(Object.fromEntries(keys.map((k, j) => [k, !!(i >> j & 1)]))); return out; };
+
+const PART1 = [
+  {
+    id: 'L01', part: 1, week: 1, machineId: 'trainer', level: 1, durationMin: 90,
+    title: 'Làm quen PLC: địa chỉ I/O và logic bit',
+    objectives: ['Hiểu ngõ vào %I, ngõ ra %Q và bảng tag', 'Dùng tiếp điểm thường mở (NO), thường đóng (NC) và cuộn dây trong LAD', 'Ghép nối tiếp (AND), song song (OR)', 'Phân biệt nút nhấn NO / NC và cảm biến PNP / NPN'],
+    tasks: [
+      'H1 (đỏ) sáng khi nhấn S1.',
+      'H2 (vàng) sáng khi nhấn đồng thời S1 và S2.',
+      'H3 (xanh lá) sáng khi nhấn S2 HOẶC công tắc SW1 ở vị trí phải.',
+      'Còi BUZ kêu khi nhấn S3. Lưu ý: S3 là nút thường đóng (NC) — bình thường ngõ vào = 1, nhấn = 0.',
+      'H4 (xanh dương) sáng khi cảm biến tiệm cận PRX thấy kim loại VÀ tia cảm biến quang PE KHÔNG bị chắn.',
+      'Thử nghiệm: bấm "Thay bằng cảm biến NPN" rồi đưa kim loại vào — quan sát đèn trên cảm biến và ngõ vào %I1.1. Giải thích vì sao.',
+    ],
+    hints: ['Nút NC: muốn "khi nhấn" thì dùng tiếp điểm thường đóng -|/|- cho tag S3.', 'Bấm vào nút trên mô hình 3D hoặc trên bảng điều khiển 2D đều được.', 'Bật "Giám sát" để thấy dòng điện chạy qua từng tiếp điểm.'],
+    grading: {
+      scenario: async (c) => {
+        await c.run(200);
+        await truth(c, { id: 't1', text: 'H1 = S1' }, 18, combos(['S1']), (st) => ({ H1: st.S1 }));
+        await truth(c, { id: 't2', text: 'H2 = S1 AND S2' }, 18, combos(['S1', 'S2']), (st) => ({ H2: st.S1 && st.S2 }));
+        await truth(c, { id: 't3', text: 'H3 = S2 OR SW1' }, 18, combos(['S2', 'SW1']), (st) => ({ H3: st.S2 || st.SW1 }));
+        await truth(c, { id: 't4', text: 'Còi BUZ kêu khi nhấn S3 (nút NC)' }, 18, combos(['S3']), (st) => ({ BUZ: st.S3 }));
+        await truth(c, { id: 't5', text: 'H4 = có kim loại AND tia quang không bị chắn' }, 18, combos(['Metal', 'Block']), (st) => ({ H4: st.Metal && !st.Block }));
+      },
+    },
+  },
+  {
+    id: 'L02', part: 1, week: 2, machineId: 'motor', level: 1, durationMin: 120,
+    title: 'Mạch tự giữ và đảo chiều động cơ: cửa cuốn',
+    objectives: ['Mạch tự giữ (seal-in) Start/Stop trong LAD', 'Khóa liên động (interlock) giữa 2 contactor đảo chiều', 'Dùng công tắc hành trình, rơ-le nhiệt và cảm biến an toàn'],
+    tasks: [
+      'Nhấn Lên (nhả tay): KM1 đóng và tự giữ, cửa đi lên; tới công tắc hành trình trên LS_Up thì KM1 nhả. Đèn H_Up sáng khi cửa đang lên.',
+      'Nhấn Xuống: KM2 đóng và tự giữ, cửa đi xuống; tới LS_Down thì KM2 nhả. Đèn H_Down sáng khi cửa đang xuống.',
+      'Nút Stop (thường đóng) và Dừng khẩn dừng cửa ở bất kỳ vị trí nào.',
+      'Khóa liên động: KM1 và KM2 KHÔNG BAO GIỜ được đóng cùng lúc, kể cả khi nhấn cả hai nút.',
+      'Khi cửa đang xuống mà cảm biến chân cửa PE báo có vật cản: dừng ngay.',
+      'Khi rơ-le nhiệt F1 tác động (F1 = 0): dừng động cơ, bật đèn H_Fault.',
+    ],
+    hints: ['Nút Stop trên bảng là nút NC: ngõ vào "Stop" = 1 khi KHÔNG nhấn → dùng tiếp điểm thường mở cho "Stop".', 'Khóa liên động: đặt tiếp điểm NC của "KM2" nối tiếp trước cuộn dây "KM1" và ngược lại.'],
+    grading: {
+      scenario: async (c) => {
+        const { m } = c;
+        await c.run(300);
+        // 1. Lên + tự giữ + dừng ở LS_Up
+        await c.press('Up', 200);
+        await c.run(800);
+        const goingUp = c.out('KM1') && c.out('H_Up') && !c.out('KM2');
+        await c.run(10500);
+        c.add('up', 'Nhấn Lên: cửa tự giữ đi lên và dừng ở công tắc hành trình trên', 15, goingUp && m.pos >= 0.99 && !c.out('KM1') && m.f1, !goingUp ? 'Nhả nút Lên thì KM1 phải vẫn đóng (tự giữ) và H_Up sáng' : !m.f1 ? 'Rơ-le nhiệt tác động — KM1 không nhả khi chạm LS_Up' : c.out('KM1') ? 'KM1 vẫn đóng khi cửa đã mở hết' : '');
+        // 2. Xuống
+        await c.press('Down', 200);
+        await c.run(800);
+        const goingDown = c.out('KM2') && c.out('H_Down') && !c.out('KM1');
+        await c.run(9800);
+        c.add('down', 'Nhấn Xuống: cửa tự giữ đi xuống và dừng ở công tắc hành trình dưới', 15, goingDown && m.pos <= 0.01 && !c.out('KM2') && m.f1, !goingDown ? 'Nhả nút Xuống thì KM2 phải vẫn đóng và H_Down sáng' : c.out('KM2') ? 'KM2 vẫn đóng khi cửa đã đóng hết' : '');
+        // 3. Stop giữa chừng
+        await c.press('Up', 200); await c.run(3000);
+        await c.press('Stop', 150); await c.run(1000);
+        const p1 = m.pos; await c.run(1000);
+        c.add('stop', 'Nút Stop dừng cửa giữa hành trình', 15, !c.out('KM1') && !c.out('KM2') && Math.abs(m.pos - p1) < 0.01 && p1 > 0.1 && p1 < 0.9, c.out('KM1') || c.out('KM2') ? 'Contactor vẫn đóng sau khi nhấn Stop' : '');
+        // 4. Khóa liên động: nhấn cả hai
+        let both = false;
+        m.press('Up', true); m.press('Down', true);
+        for (let i = 0; i < 20; i++) { await c.run(50); if (c.out('KM1') && c.out('KM2')) both = true; }
+        m.press('Up', false); m.press('Down', false);
+        await c.press('Down', 200); for (let i = 0; i < 20; i++) { await c.run(50); if (c.out('KM1') && c.out('KM2')) both = true; }
+        await c.press('Up', 200); for (let i = 0; i < 20; i++) { await c.run(50); if (c.out('KM1') && c.out('KM2')) both = true; }
+        await c.press('Stop', 150); await c.run(800);
+        const movedAtAll = m.stats.produced > 0;
+        c.add('interlock', 'Khóa liên động: KM1 và KM2 không bao giờ đóng cùng lúc', 15, movedAtAll && !both && m.stats.crashes === 0, both || m.stats.crashes ? 'KM1 và KM2 đã đóng cùng lúc — ngắn mạch' : '');
+        if (m.crashed) { m.press('Reset', true); await c.run(200); m.press('Reset', false); }
+        // 5. Vật cản khi đang xuống
+        await c.press('Up', 200); await c.run(10500);
+        c.set('Obstacle', true);
+        await c.press('Down', 200); await c.run(6000);
+        const stoppedForObstacle = !c.out('KM2') && m.pos > 0.12 && m.stats.crashes === 0;
+        c.set('Obstacle', false); await c.press('Stop', 150); await c.run(500);
+        c.add('obstacle', 'Có vật cản ở chân cửa khi đang xuống: dừng ngay', 15, stoppedForObstacle, stoppedForObstacle ? '' : 'Cửa vẫn đi xuống khi PE = 1');
+        if (m.crashed) { m.press('Reset', true); await c.run(200); m.press('Reset', false); }
+        // 6. Quá tải F1
+        m.setFault('jam', true);
+        await c.press('Down', 200); await c.run(4000);
+        const tripped = !m.f1;
+        const off = !c.out('KM1') && !c.out('KM2');
+        const lamp = !!c.out('H_Fault');
+        m.setFault('jam', false);
+        c.add('overload', 'Rơ-le nhiệt F1 tác động: dừng động cơ và bật đèn H_Fault', 15, tripped && off && lamp, !tripped ? 'F1 không tác động (kiểm tra kịch bản)' : !off ? 'Contactor vẫn đóng khi F1 = 0' : !lamp ? 'Đèn H_Fault không sáng khi F1 = 0' : '');
+      },
+    },
+  },
+  {
+    id: 'L03', part: 1, week: 3, machineId: 'stardelta', level: 2, durationMin: 120,
+    title: 'Timer IEC: khởi động sao–tam giác máy nén khí',
+    objectives: ['Dùng timer TON, TOF, TP với instance DB', 'Lập trình khởi động sao–tam giác có thời gian chết khi chuyển', 'Đọc tín hiệu analog áp suất, dòng điện; quan sát đồ thị dòng khởi động'],
+    tasks: [
+      'Nhấn Start (công tắc ở Auto): máy ở trạng thái sẵn sàng. Khi công tắc áp suất PS = 1 (áp thấp): đóng KM1 + KM2 (sao).',
+      'Sau 4 s chạy sao: nhả KM2, chờ 80 ms (thời gian chết), rồi đóng KM3 (tam giác).',
+      'Khi PS = 0 (đủ 8 bar): dừng động cơ (nhả KM1, KM3). Khi áp tụt, PS = 1 lại: tự khởi động sao–tam giác lại.',
+      'KM2 và KM3 không bao giờ đóng cùng lúc.',
+      'Stop / Dừng khẩn / rơ-le nhiệt F1 tác động: dừng ngay. F1 tác động thì bật H_Fault.',
+      'Quan sát đồ thị: so sánh dòng khởi động khi chạy đúng sao–tam giác và khi thử đóng thẳng tam giác.',
+    ],
+    hints: ['Dùng một TON cho thời gian sao và một TON (hoặc TP) cho thời gian chết.', 'H_Run nên sáng khi máy ở trạng thái chạy tự động, kể cả lúc động cơ tạm dừng vì đủ áp.'],
+    grading: { runMs: 60000, minGood: 2 },
+  },
+  {
+    id: 'L04', part: 1, week: 4, machineId: 'counter', level: 2, durationMin: 120,
+    title: 'Counter, so sánh, MOVE: đếm 12 lon vào thùng',
+    objectives: ['Dùng bộ đếm CTU / CTUD với instance DB', 'So sánh (CMP) và MOVE giá trị ra bảng hiển thị', 'Điều khiển hai băng tải phối hợp theo cảm biến'],
+    tasks: [
+      'Nhấn Start: nếu có thùng đúng vị trí (B2 = 1) thì chạy băng tải sản phẩm M1.',
+      'Đếm số lon rơi vào thùng bằng cảm biến B1. Hiển thị số đếm hiện tại lên bảng LED (MOVE vào "Display").',
+      'Đủ 12 lon: dừng M1, bật đèn H_Full, chạy băng tải thùng M2 tới khi thùng rỗng mới tới vị trí (B2 = 1), reset bộ đếm, chạy tiếp.',
+      'Không được để lon rơi khi không có thùng, không được bỏ quá 12 lon vào một thùng.',
+      'Stop / Dừng khẩn: dừng cả hai băng tải.',
+    ],
+    hints: ['B2 vẫn = 1 trong lúc thùng đầy còn đứng yên: chờ B2 về 0 rồi lên 1 (thùng mới) mới chạy tiếp — dùng sườn lên.', 'Lon thứ 12 còn đang rơi khi bạn dừng M1? Hãy kiểm tra: dừng M1 ngay khi đếm đủ.'],
+    grading: {
+      runMs: 90000, minGood: 4,
+      sampleLabel: 'Bảng LED hiển thị đúng số lon trong thùng đang nạp',
+      sample: (m) => {
+        const box = m.boxes.find((b) => Math.abs(b.y) < 12);
+        if (!box || box.count === 0) return undefined;
+        const v = m.outputs.Display || 0;
+        return v === box.count || v === box.count - 1 || v === box.count + 1 ? true : `bảng LED = ${v}, thùng có ${box.count} lon`;
+      },
+    },
+  },
+];
+
 export const LABS = [
+  ...PART1,
   {
     id: 'L06', part: 2, week: 6, machineId: 'indexer', level: 2, durationMin: 120,
     title: 'Bàn xoay chia vị trí: trình tự nhiều trạm',

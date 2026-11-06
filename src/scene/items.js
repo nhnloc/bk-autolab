@@ -40,6 +40,19 @@ function makePuck(it) {
   return new THREE.Group().add(new THREE.Mesh(geo, mat(it.color || '#c8553d', { metalness: 0.3, roughness: 0.5 })));
 }
 
+/** Lon nước: thân trụ + nắp kim loại. */
+function makeCan(it) {
+  const [d, , hgt] = it.size || [66, 66, 120];
+  const g = new THREE.Group();
+  const body = new THREE.CylinderGeometry(d / 2, d / 2, hgt - 8, 24); body.rotateX(Math.PI / 2); body.translate(0, 0, hgt / 2);
+  g.add(new THREE.Mesh(body, mat(it.color || '#d32f2f', { metalness: 0.35, roughness: 0.45 })));
+  const lid = new THREE.CylinderGeometry(d / 2 - 4, d / 2 - 2, 8, 24); lid.rotateX(Math.PI / 2); lid.translate(0, 0, hgt - 4);
+  const lid2 = lid.clone(); lid2.translate(0, 0, -(hgt - 8));
+  const metal = mat('#c9ced3', { metalness: 0.7, roughness: 0.3 });
+  g.add(new THREE.Mesh(lid, metal), new THREE.Mesh(lid2, metal));
+  return g;
+}
+
 function makeTray(it) {
   const [l, w, hgt] = it.size || [300, 200, 60];
   const g = new THREE.Group();
@@ -136,9 +149,9 @@ export class ItemLayer {
       const id = it.id ?? `${it.kind}_${seen.size}`;
       seen.add(id);
       let o = this.map.get(id);
-      if (!o || o.userData.kind !== it.kind) {
+      if (!o || o.userData.kind !== it.kind + (it.shape ? it.shape + it.color : '')) {
         if (o) this.root.remove(o);
-        o = this.create(it); o.userData.kind = it.kind;
+        o = this.create(it); o.userData.kind = it.kind + (it.shape ? it.shape + it.color : '');
         this.map.set(id, o); this.root.add(o);
       }
       o.position.set(+it.x || 0, +it.y || 0, +it.z || 0);
@@ -155,7 +168,7 @@ export class ItemLayer {
       case 'puck': g = makePuck(it); break;
       case 'carton': g = makeCarton(it); break;
       case 'tray': g = makeTray(it); break;
-      case 'product': g = makeBox(it, it.color || '#2f7fc1', false); break;
+      case 'product': g = it.shape === 'can' ? makeCan(it) : makeBox(it, it.color || '#2f7fc1', false); break;
       case 'part': g = makePuck({ ...it, size: it.size || [60, 60, 30] }); break;
       default: g = makeBox(it, it.color || KRAFT);
     }

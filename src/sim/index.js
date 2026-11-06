@@ -7,8 +7,12 @@ import { Sealer } from './machines/sealer.js';
 import { PickPlace } from './machines/pickplace.js';
 import { Indexer } from './machines/indexer.js';
 import { Palletizer } from './machines/palletizer.js';
+import { Trainer } from './machines/trainer.js';
+import { Motor } from './machines/motor.js';
+import { StarDelta } from './machines/stardelta.js';
+import { Counter } from './machines/counter.js';
 
-const CLASSES = { feeder: Feeder, escapement: Escapement, diverter: Diverter, erector: Erector, sealer: Sealer, pickplace: PickPlace, indexer: Indexer, palletizer: Palletizer };
+const CLASSES = { trainer: Trainer, motor: Motor, stardelta: StarDelta, counter: Counter, feeder: Feeder, escapement: Escapement, diverter: Diverter, erector: Erector, sealer: Sealer, pickplace: PickPlace, indexer: Indexer, palletizer: Palletizer };
 
 export function createMachine(id) {
   const C = CLASSES[id];

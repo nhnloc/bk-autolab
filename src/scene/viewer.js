@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { NODE_DEFS } from './nodes.js';
 import { buildPlaceholder } from './placeholder.js';
 import { ItemLayer } from './items.js';
+import { drawSeg } from './seg7.js';
 
 let manifestP = null;
 export function loadManifest() {
@@ -36,6 +37,7 @@ export class MachineViewer {
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.outputColorSpace = THREE.SRGBColorSpace;
+    r.localClippingEnabled = true; // node có clipAboveZFC / clipZ (vd. cửa cuốn cuộn lên lô)
     r.domElement.className = 'viewer-canvas';
     r.domElement.setAttribute('aria-label', 'Mô hình 3D của máy');
     r.domElement.setAttribute('role', 'img');
@@ -59,7 +61,9 @@ export class MachineViewer {
     this.machine = new THREE.Group(); s.add(this.machine);
     this.items = new ItemLayer(s);
     this.bindings = []; this.belts = []; this.leds = new Map(); this.lamps = {};
+    this.outLamps = new Map(); this.nodesByName = new Map(); this.buttons = new Map(); this.btnDefs = new Map(); this.displays3d = [];
     this.applyTheme();
+    this._setupPicking();
 
     this._ro = new ResizeObserver(() => this.resize()); this._ro.observe(container);
     this._loop = this._loop.bind(this);
@@ -114,8 +118,15 @@ export class MachineViewer {
       const o = root.getObjectByName(name);
       if (!o) continue;
       const type = d.type || (/^belt_/.test(name) ? 'belt' : /^sen_/.test(name) ? 'sensor' : 'static');
+      this.nodesByName.set(name, o);
+      // Cắt hình phía trên cao độ Z (FreeCAD mm): manifest dùng clipAboveZFC, placeholder cũ dùng clipZ.
+      const clip = d.clipAboveZFC ?? d.clipZ;
+      if (clip !== undefined && Number.isFinite(+clip)) this.clipAbove(o, +clip);
+      if (d.role === 'display' || name === 'display') this.setupDisplay(o, d);
       if (type === 'translate' || type === 'rotate') {
-        this.bindings.push({ name, o, type, axis: axisToThree(d.axisFC || [1, 0, 0]), travel: +d.travel || 0, restP: o.position.clone(), restQ: o.quaternion.clone() });
+        // follow/ratio: node quay theo node khác (vd. flywheel = pulley × 0.3053)
+        this.bindings.push({ name, o, type, axis: axisToThree(d.axisFC || [1, 0, 0]), travel: +d.travel || 0, restP: o.position.clone(), restQ: o.quaternion.clone(),
+          follow: d.follow || null, ratio: Number.isFinite(+d.ratio) ? +d.ratio : 1 });
       } else if (type === 'belt' || type === 'rollers') {
         this.setupBelt(name, o, d);
       } else if (name === 'pallet') {
@@ -127,6 +138,11 @@ export class MachineViewer {
       if (m && !this.leds.has(m[1])) this.setupSensor(m[1], o);
       const l = /^static_lamp_(green|amber|red)/.exec(o.name);
       if (l && !this.lamps[l[1]]) this.setupLamp(l[1], o, defs[o.name]?.signal);
+      const q = /^out_(.+)$/.exec(o.name);
+      if (q && !this.outLamps.has(o.name)) this.setupOutput(defs[o.name]?.tag || q[1], o, defs[o.name]?.color);
+      const b = /^btn_(.+)$/.exec(o.name);
+      if (b && !this.buttons.has(b[1])) { this.buttons.set(b[1], o); if (defs[o.name]) this.btnDefs.set(b[1], defs[o.name]); }
+      if (o.name && !this.nodesByName.has(o.name)) this.nodesByName.set(o.name, o);
     });
     if (!this.leds.size) this.fallbackLeds(root);
   }
@@ -164,6 +180,114 @@ export class MachineViewer {
     o.traverse((c) => { if (c.isMesh) c.material = m; });
     this.lamps[color] = { m, hex, on: null, signal: signal || { green: 'H_Run', amber: 'H_Warn', red: 'H_Fault' }[color] };
   }
+  /** Đèn/thiết bị đầu ra out_<TAG>: màu gốc = tắt (tối); bật = phát sáng cùng màu. */
+  setupOutput(tag, o, color) {
+    const mats = [];
+    o.traverse((c) => {
+      if (!c.isMesh) return;
+      const src = Array.isArray(c.material) ? c.material[0] : c.material;
+      const m = src ? src.clone() : new THREE.MeshStandardMaterial();
+      if (!m.emissive) return;
+      c.material = m; mats.push(m);
+    });
+    if (!mats.length) return;
+    const lit = new THREE.Color(color || ('#' + mats[0].color.getHexString()));
+    // màu gốc quá tối (đèn tắt) → dùng màu sáng hơn khi bật
+    const hsl = {}; lit.getHSL(hsl); if (hsl.l < 0.45) lit.setHSL(hsl.h, Math.max(hsl.s, 0.7), 0.55);
+    this.outLamps.set(o.name, { tag, mats, base: mats.map((m) => m.color.clone()), lit, on: null });
+  }
+  /** Ẩn phần hình học phía trên cao độ Z (mm FreeCAD) — dùng cho cửa cuốn. */
+  clipAbove(o, zFC) {
+    // Mặt phẳng theo toạ độ thế giới: giữ phần y ≤ zFC/1000 (máy đặt tại gốc, Z FreeCAD → Y three).
+    const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), zFC / 1000);
+    const clipMat = (m) => { const c = m.clone(); c.clippingPlanes = [plane]; c.clipShadows = true; return c; };
+    o.traverse((c) => { if (c.isMesh && c.material) c.material = Array.isArray(c.material) ? c.material.map(clipMat) : clipMat(c.material); });
+    this.clipPlanes = [...(this.clipPlanes || []), plane];
+  }
+
+  /** Bảng LED 3D: vẽ số 7 đoạn lên texture của primitive 'lcd' (UV 0..1, v hướng xuống), ẩn primitive 'seg' (số "8." tĩnh). */
+  setupDisplay(o, d) {
+    const faceName = d.faceMaterial || 'lcd', segName = d.segmentMaterial || 'seg';
+    let face = null; const segs = [];
+    o.traverse((c) => {
+      if (!c.isMesh) return;
+      const mn = (Array.isArray(c.material) ? c.material[0] : c.material)?.name || '';
+      if (mn === faceName || c.name === faceName) face = face || c;
+      else if (mn === segName || c.name === segName) segs.push(c);
+    });
+    if (!face || typeof document === 'undefined') return;
+    const n = Math.max(1, Math.min(8, +d.digits || 4));
+    const [fw, fh] = Array.isArray(d.faceSizeMM) ? d.faceSizeMM : [590, 160];
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = Math.max(32, Math.round((512 * fh) / fw));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.flipY = false; // UV kiểu glTF (v hướng xuống)
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    face.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    segs.forEach((m) => { m.visible = false; });
+    const D = { tag: d.tag || null, n, canvas, ctx, tex, last: undefined };
+    this.displays3d.push(D);
+    this.drawDisplay(D, null);
+  }
+  drawDisplay(D, value) {
+    drawSeg(D.ctx, D.canvas.width, D.canvas.height, value, D.n);
+    D.tex.needsUpdate = true; D.last = value;
+  }
+
+  /** Id nút để gọi m.press: luôn lấy từ tên node btn_<ID>; chỉ dùng trường manifest `button` khi <ID> không có trong def.buttons. */
+  buttonId(sfx) {
+    const hnd = this.btnHandler;
+    if (!hnd?.has || hnd.has(sfx)) return sfx;
+    const alt = this.btnDefs.get(sfx)?.button;
+    return alt && hnd.has(alt) ? alt : sfx;
+  }
+
+  /* ---------- Bấm nút trên mô hình 3D (btn_<ID>) ---------- */
+  /** handler: { press(id, down), kindOf(id) → 'momentary'|'latching'|'selector' } */
+  setButtonHandler(handler) { this.btnHandler = handler; }
+  _setupPicking() {
+    const el = this.renderer.domElement;
+    this._ray = new THREE.Raycaster(); this._ndc = new THREE.Vector2();
+    let held = null;
+    const pick = (e) => {
+      if (!this.buttons.size || !this.btnHandler) return null;
+      const r = el.getBoundingClientRect(); if (!r.width) return null;
+      this._ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      this._ray.setFromCamera(this._ndc, this.camera);
+      const hit = this._ray.intersectObject(this.machine, true)[0];
+      for (let n = hit?.object; n && n !== this.machine; n = n.parent) { const m = /^btn_(.+)$/.exec(n.name || ''); if (m && this.buttons.has(m[1])) return m[1]; }
+      return null;
+    };
+    const release = () => {
+      if (!held) return;
+      const id = held; held = null; this.controls.enabled = true;
+      try { this.btnHandler?.press(id, false); } catch (err) { console.warn(err); }
+    };
+    // Bắt ở pha capture trên phần tử cha để OrbitControls không xoay camera khi bấm nút.
+    this._onDown = (e) => {
+      if (e.button !== 0 || e.target !== el) return;
+      const sfx = pick(e); if (!sfx) return;
+      e.stopPropagation(); e.preventDefault();
+      const id = this.buttonId(sfx);
+      const kind = this.btnHandler.kindOf?.(id) || this.btnDefs.get(sfx)?.kind || 'momentary';
+      try {
+        if (kind === 'momentary') { held = id; this.controls.enabled = false; this.btnHandler.press(id, true); }
+        else { this.btnHandler.press(id, true); this.btnHandler.press(id, false); }
+      } catch (err) { console.warn(err); }
+    };
+    this._onMove = (e) => {
+      if (e.target !== el || e.buttons) return;
+      const now = performance.now(); if (now - (this._lastPick || 0) < 50) return; this._lastPick = now;
+      el.style.cursor = pick(e) ? 'pointer' : '';
+    };
+    this.container.addEventListener('pointerdown', this._onDown, true);
+    this.container.addEventListener('pointermove', this._onMove);
+    window.addEventListener('pointerup', release); window.addEventListener('pointercancel', release); window.addEventListener('blur', release);
+    this._offPick = () => { release(); this.container.removeEventListener('pointerdown', this._onDown, true); this.container.removeEventListener('pointermove', this._onMove); window.removeEventListener('pointerup', release); window.removeEventListener('pointercancel', release); window.removeEventListener('blur', release); };
+  }
+
   /** Placeholder không có node sen_: tạo hàng LED ở mép trước máy. */
   fallbackLeds(root) {
     const box = new THREE.Box3().setFromObject(root);
@@ -215,11 +339,23 @@ export class MachineViewer {
     if (!v) return;
     const parts = v.parts || {};
     for (const b of this.bindings) {
-      const val = +parts[b.name] || 0;
+      const val = b.follow && !(b.name in parts) ? (+parts[b.follow] || 0) * b.ratio : +parts[b.name] || 0;
       if (b.type === 'translate') b.o.position.copy(b.restP).addScaledVector(b.axis, (b.travel / 1000) * val);
       else b.o.quaternion.copy(b.restQ).premultiply(new THREE.Quaternion().setFromAxisAngle(b.axis, THREE.MathUtils.degToRad(b.travel * val)));
     }
     if (this.pallet && 'pallet_visible' in parts) this.pallet.visible = !!parts.pallet_visible;
+    for (const k in parts) {
+      if (!k.endsWith('_visible') || k === 'pallet_visible') continue;
+      const o = this.nodesByName.get(k.slice(0, -8)); if (o) o.visible = !!parts[k];
+    }
+    const vo = v.outs || {};
+    const outsQ = this.getOutputs?.() || {};
+    for (const L of this.outLamps.values()) {
+      const on = !!(L.tag in vo ? vo[L.tag] : outsQ[L.tag]);
+      if (on === L.on) continue;
+      L.on = on;
+      L.mats.forEach((m, i) => { m.color.copy(on ? L.lit : L.base[i]); m.emissive.copy(on ? L.lit : new THREE.Color(0)); m.emissiveIntensity = on ? 1.5 : 0; });
+    }
     for (const bt of this.belts) {
       let off = v.belts?.[bt.name];
       if (off === undefined && parts[bt.name] !== undefined) off = parts[bt.name] / 1000; // shim: mm
@@ -235,6 +371,14 @@ export class MachineViewer {
       const on = L.signal === 'H_Run' ? !!(v.lamps?.run ?? outs.H_Run) : L.signal === 'H_Fault' ? !!(v.lamps?.fault ?? outs.H_Fault) || !!v.crashed
         : L.signal in outs ? !!outs[L.signal] : !!v.crashed;
       if (on !== L.on) { L.on = on; L.m.emissive.set(on ? L.hex : 0x000000); L.m.emissiveIntensity = on ? 1.6 : 0; }
+    }
+    if (this.displays3d.length) {
+      const ds = v.displays || [];
+      this.displays3d.forEach((D, i) => {
+        const src = ds.find((x) => D.tag && (x.id === D.tag || x.tag === D.tag)) || ds[i] || ds[0];
+        const val = src ? src.value : null;
+        if (val !== D.last) this.drawDisplay(D, val);
+      });
     }
     this.items.update(v.items || []);
   }
@@ -259,8 +403,10 @@ export class MachineViewer {
     this.disposed = true;
     cancelAnimationFrame(this._raf);
     this._ro.disconnect();
+    this._offPick?.();
     this.controls.dispose();
     this.scene.traverse((o) => { if (o.isMesh) { o.geometry?.dispose(); } });
+    this.displays3d.forEach((D) => D.tex.dispose());
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
