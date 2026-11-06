@@ -316,3 +316,14 @@ Vietnamese (fallback by design). English plurals use "(s)".
   (2–6 KB) + `index.json`. Không chứa code lời giải.
 - `modal()` nhận thêm `cls`.
 
+
+## Chỉ vị trí I/O trên mô hình
+
+- Rê chuột (hoặc Tab tới) một dòng ở bảng **I/O trực tiếp** hay bảng I/O trong phần Hướng dẫn → thiết bị tương ứng trên
+  mô hình được khoanh khung vàng nhấp nháy (nhìn xuyên vỏ máy) kèm nhãn `%I1.2 B4`; ô chú thích ở góc trên trái ghi địa chỉ,
+  tag, mô tả. Bấm để ghim (dòng ngõ vào cho phép ép giá trị thì bấm vẫn là ép — chỉ rê chuột). Nút/đèn chỉ có trên bảng
+  điều khiển (Start, Stop, EStop, H_Run…) được khoanh trên bảng điều khiển. Có ở trang lab, xem bài, cài lỗi, chạy thử mẫu.
+- Ánh xạ tag → node: `src/scene/ioNodes.js` (`sen_<TAG>`, `out_<TAG>`, `btn_<ID>`, van `nY1/nY2` → cơ cấu `…nA…`,
+  đèn tháp, bảng `EXTRA` cho động cơ/chân không/analog từng máy). Mọi I/O của 12 máy đều có chỗ trên mô hình hoặc bảng điều khiển.
+- 3D: `MachineViewer.highlight(tag, label)` (Box3Helper `depthTest: false`, cỡ tối thiểu 5 cm + nhãn DOM chiếu theo camera).
+  2D: `Fallback2D.highlight` khoanh khối/thanh vị trí cơ cấu, LED cảm biến, đèn đầu ra.

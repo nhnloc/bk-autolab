@@ -9,6 +9,7 @@ import { ItemLayer } from './items.js';
 import { EffectsLayer } from './effects.js';
 import { drawSeg } from './seg7.js';
 import { t } from '../app/i18n.js';
+import { nodesForTag } from './ioNodes.js';
 
 let manifestP = null;
 export function loadManifest() {
@@ -305,6 +306,54 @@ export class MachineViewer {
     });
   }
 
+  /* ---------- Chỉ vị trí thiết bị của một tag I/O ---------- */
+  /** Làm nổi bật (khung vàng nhấp nháy, nhìn xuyên vỏ máy + nhãn) các node ứng với tag. Trả về số node tìm thấy. */
+  highlight(tag, label = '') {
+    this._clearHl();
+    if (!tag) return 0;
+    const has = Object.assign((n) => this.nodesByName.has(n), { names: () => [...this.nodesByName.keys()] });
+    const names = nodesForTag(this.machineId, tag, has);
+    if (!names.length) return 0;
+    this._hl = names.map((n) => {
+      const box = new THREE.Box3();
+      const helper = new THREE.Box3Helper(box, new THREE.Color(0xffb020));
+      helper.material.depthTest = false; helper.material.transparent = true; helper.renderOrder = 999;
+      this.scene.add(helper);
+      return { o: this.nodesByName.get(n), box, helper };
+    });
+    this._hlLabel = document.createElement('div');
+    this._hlLabel.className = 'hl-label';
+    this._hlLabel.textContent = label || tag;
+    this.container.appendChild(this._hlLabel);
+    this._updateHl();
+    return names.length;
+  }
+  _clearHl() {
+    for (const H of this._hl || []) { this.scene.remove(H.helper); H.helper.geometry.dispose(); H.helper.material.dispose(); }
+    this._hl = null; this._hlLabel?.remove(); this._hlLabel = null;
+  }
+  _updateHl() {
+    if (!this._hl) return;
+    const a = 0.55 + 0.45 * Math.sin(performance.now() / 160);
+    const size = new THREE.Vector3(), top = new THREE.Vector3(-Infinity, -Infinity, -Infinity), all = new THREE.Box3();
+    for (const H of this._hl) {
+      H.box.setFromObject(H.o);
+      if (H.box.isEmpty()) continue;
+      H.box.getSize(size);
+      H.box.expandByVector(new THREE.Vector3(Math.max(0, 0.05 - size.x) / 2, Math.max(0, 0.05 - size.y) / 2, Math.max(0, 0.05 - size.z) / 2)).expandByScalar(0.01);
+      H.helper.material.opacity = a;
+      all.union(H.box);
+    }
+    const L = this._hlLabel; if (!L) return;
+    if (all.isEmpty()) { L.hidden = true; return; }
+    all.getCenter(top); top.y = all.max.y;
+    top.project(this.camera);
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    L.hidden = top.z > 1;
+    L.style.left = `${Math.max(4, Math.min(w - 4, ((top.x + 1) / 2) * w))}px`;
+    L.style.top = `${Math.max(24, ((1 - top.y) / 2) * h)}px`;
+  }
+
   frame() {
     const box = new THREE.Box3().setFromObject(this.machine);
     if (box.isEmpty()) box.set(new THREE.Vector3(-1, 0, -1), new THREE.Vector3(1, 1.5, 1));
@@ -400,6 +449,7 @@ export class MachineViewer {
     if (!this.container.isConnected || !this.container.clientWidth) return;
     if (this.source) { try { this.apply(this.source()); } catch (e) { if (!this._warned) { console.warn('[viewer]', e); this._warned = true; } } }
     this.controls.update();
+    this._updateHl();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -408,6 +458,7 @@ export class MachineViewer {
     cancelAnimationFrame(this._raf);
     this._ro.disconnect();
     this._offPick?.();
+    this._clearHl();
     this.fx.dispose();
     this.controls.dispose();
     this.scene.traverse((o) => { if (o.isMesh) { o.geometry?.dispose(); } });

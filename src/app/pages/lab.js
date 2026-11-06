@@ -167,6 +167,7 @@ export async function labPage({ id }, { user, carry }) {
   const guide = createGuidePanel({
     lab, def, lecture, userId: user.id, initialTab: keep ? keep.guideTab : firstVisit ? 'lecture' : 'task',
     onCollapse: () => toggleGuide(false),
+    onLocate: (tag, mode) => mv.locateTag(tag, mode),
     onTab: (tab) => { body?.classList.toggle('lecture-tab', tab === 'lecture'); if (tab !== 'lecture') setReading(false); },
     onWide: (on) => setReading(on ?? !body.classList.contains('reading')),
   });

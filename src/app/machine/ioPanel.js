@@ -5,7 +5,7 @@ import { t } from '../i18n.js';
 import { machineIo } from '../engine.js';
 import { ioValue } from './ioState.js';
 
-export function createIoPanel({ m, getPlc, allowOverride = false, onForce, forced = new Map() }) {
+export function createIoPanel({ m, getPlc, allowOverride = false, onForce, forced = new Map(), onLocate }) {
   const { inputs, outputs } = machineIo(m.def);
   const cells = [];
   const row = (io) => {
@@ -13,8 +13,11 @@ export function createIoPanel({ m, getPlc, allowOverride = false, onForce, force
     const val = h('span.io-val.mono');
     const canForce = allowOverride && io.dir === 'I' && io.type === 'Bool';
     const fb = h('span.io-f', { hidden: true }, 'F');
-    const el = h(canForce ? 'button.io-row' : 'div.io-row', { type: canForce ? 'button' : null, title: `${io.addr} ${io.tag} — ${io.desc || ''}${canForce ? '\n' + t('io.forceTip') : ''}`,
-      onclick: canForce ? () => cycleForce(io) : null },
+    const el = h(canForce ? 'button.io-row' : 'div.io-row', { type: canForce ? 'button' : null, title: `${io.addr} ${io.tag} — ${io.desc || ''}${canForce ? '\n' + t('io.forceTip') : onLocate ? '\n' + t('mv.locateTip') : ''}`,
+      onclick: canForce ? () => cycleForce(io) : onLocate ? () => onLocate(io, 'pin') : null,
+      onmouseenter: onLocate ? () => onLocate(io, 'hover') : null, onmouseleave: onLocate ? () => onLocate(null, 'hover') : null,
+      onfocusin: onLocate ? () => onLocate(io, 'hover') : null, onfocusout: onLocate ? () => onLocate(null, 'hover') : null,
+      tabindex: !canForce && onLocate ? 0 : null },
       led, h('span.io-addr.mono', io.addr), h('span.io-tag', io.tag), io.type !== 'Bool' ? val : null, fb, h('span.io-desc', io.desc || ''));
     cells.push({ io, led, val, fb, el });
     return el;
@@ -35,6 +38,8 @@ export function createIoPanel({ m, getPlc, allowOverride = false, onForce, force
     h('div.io-cols',
       h('div.io-col', h('div.io-col-h', t('io.inputs')), ...inputs.map(row)),
       h('div.io-col', h('div.io-col-h', t('io.outputs')), ...outputs.map(row))));
+  /** Đánh dấu dòng đang được chỉ vị trí trên mô hình. */
+  function mark(addr) { for (const c of cells) c.el.classList.toggle('located', c.io.addr === addr); }
   function refresh() {
     const plc = getPlc();
     for (const c of cells) {
@@ -48,5 +53,5 @@ export function createIoPanel({ m, getPlc, allowOverride = false, onForce, force
     }
   }
   refresh();
-  return { el, refresh, clearForces() { const plc = getPlc(); for (const a of forced.keys()) { try { plc?.unforce(a); } catch { /* bỏ qua */ } } forced.clear(); refresh(); } };
+  return { el, refresh, mark, clearForces() { const plc = getPlc(); for (const a of forced.keys()) { try { plc?.unforce(a); } catch { /* bỏ qua */ } } forced.clear(); refresh(); } };
 }

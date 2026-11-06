@@ -68,14 +68,14 @@ export function createOperatorPanel({ m, getVisual, readOnly = false }) {
 
   const main = buttons.filter((b) => MAIN_IDS.includes(b.id));
   const extra = buttons.filter((b) => !main.includes(b));
-  const build = (b) => (b.kind === 'latching' ? (b.color === 'estop' || b.id === 'EStop' ? estop(b) : toggle(b)) : b.kind === 'selector' ? selector(b) : momentary(b));
+  const build = (b) => { const w = b.kind === 'latching' ? (b.color === 'estop' || b.id === 'EStop' ? estop(b) : toggle(b)) : b.kind === 'selector' ? selector(b) : momentary(b); w.dataset.btn = b.id; return w; };
 
   const displays = createDisplayRow();
   const crash = h('div.crash-msg', { role: 'alert', hidden: true });
   const el = h('section.op-panel', { 'aria-label': t('op.title') },
     h('div.op-title', t('op.title')),
     displays.el,
-    h('div.op-row', h('div.lamp-wrap', lampRun, h('span.pb-l', 'Run')), h('div.lamp-wrap', lampFault, h('span.pb-l', 'Fault')), ...main.map(build)),
+    h('div.op-row', h('div.lamp-wrap', { dataset: { btn: 'H_Run' } }, lampRun, h('span.pb-l', 'Run')), h('div.lamp-wrap', { dataset: { btn: 'H_Fault' } }, lampFault, h('span.pb-l', 'Fault')), ...main.map(build)),
     extra.length ? h('div.op-row.extra', ...extra.map(build)) : null,
     crash);
 
@@ -90,5 +90,7 @@ export function createOperatorPanel({ m, getVisual, readOnly = false }) {
     crash.hidden = !c; if (c) crash.textContent = t('op.crashed') + ' ' + (trText(c.message) || '');
   }
   refresh();
-  return { el, refresh };
+  /** Khoanh nút/đèn trên bảng điều khiển (id nút hoặc H_Run/H_Fault); null = bỏ. Trả về true nếu có. */
+  function highlight(id) { let hit = false; el.querySelectorAll('[data-btn]').forEach((w) => { const on = !!id && w.dataset.btn === id; w.classList.toggle('hl', on); hit ||= on; }); return hit; }
+  return { el, refresh, highlight };
 }

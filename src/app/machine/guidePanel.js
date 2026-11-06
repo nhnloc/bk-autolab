@@ -9,11 +9,14 @@ import { renderMd, mdInline } from '../components/md.js';
 import { getQuiz, setQuiz } from '../lectures.js';
 import { trMachine } from '../loc.js';
 
-export function createGuidePanel({ lab, def, lecture, userId, initialTab = 'task', onCollapse, onTab, onWide }) {
+export function createGuidePanel({ lab, def, lecture, userId, initialTab = 'task', onCollapse, onTab, onWide, onLocate }) {
   const { inputs, outputs } = machineIo(def);
   const summary = lab.summary || trMachine(def)?.summary || '';
   const ioTable = (rows) => h('table.io-table', h('thead', h('tr', h('th', t('guide.addr')), h('th', t('guide.tag')), h('th', t('guide.desc')))),
-    h('tbody', rows.map((r) => h('tr', h('td.mono', r.addr), h('td.mono', r.tag), h('td', r.desc || '')))));
+    h('tbody', rows.map((r) => h('tr', onLocate ? { tabindex: 0, title: t('mv.locateTip'),
+      onmouseenter: () => onLocate(r.tag, 'hover'), onmouseleave: () => onLocate(null, 'hover'),
+      onclick: () => onLocate(r.tag, 'pin'), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLocate(r.tag, 'pin'); } } } : null,
+      h('td.mono', r.addr), h('td.mono', r.tag), h('td', r.desc || '')))));
   const stars = '★'.repeat(lab.level || 1) + '☆'.repeat(Math.max(0, 4 - (lab.level || 1)));
   const mins = lab.raw?.durationMin || lab.durationMin;
 

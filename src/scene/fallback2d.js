@@ -3,6 +3,7 @@ import { loadManifest } from './viewer.js';
 import { PLACEHOLDER, NODE_DEFS } from './nodes.js';
 import { t } from '../app/i18n.js';
 import { trText } from '../app/loc.js';
+import { nodesForTag } from './ioNodes.js';
 
 export class Fallback2D {
   constructor(container, { machineId } = {}) {
@@ -24,6 +25,26 @@ export class Fallback2D {
     }
   }
   setSource(fn) { this.source = fn; }
+  /** Chỉ vị trí tag trên sơ đồ 2D: khoanh LED/đèn/cơ cấu tương ứng. Trả về số mục tìm thấy. */
+  highlight(tag, label = '') {
+    this.hl = null;
+    if (!tag) return 0;
+    const v = this.source?.() || {};
+    const keys = new Set([...Object.keys(v.parts || {}), ...(PLACEHOLDER[this.machineId] || []).map((p) => p.node).filter(Boolean)]);
+    const has = Object.assign((n) => keys.has(n), { names: () => [...keys] });
+    const nodes = new Set(nodesForTag(this.machineId, tag, has));
+    const n = nodes.size + (tag in (v.leds || {}) ? 1 : 0) + (tag in (v.outs || {}) ? 1 : 0);
+    if (n) this.hl = { tag, nodes, label: label || tag };
+    return n;
+  }
+  _ring(g, x, y, r) {
+    const a = 0.55 + 0.45 * Math.sin(performance.now() / 160);
+    g.save(); g.strokeStyle = `rgba(255,176,32,${a.toFixed(2)})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke(); g.restore();
+  }
+  _hlRect(g, x, y, w, h) {
+    const a = 0.55 + 0.45 * Math.sin(performance.now() / 160);
+    g.save(); g.strokeStyle = `rgba(255,176,32,${a.toFixed(2)})`; g.lineWidth = 3; g.strokeRect(x - 3, y - 3, w + 6, h + 6); g.restore();
+  }
   setView() {}
   applyTheme() {}
   _loop() {
@@ -57,6 +78,7 @@ export class Fallback2D {
       g.globalAlpha = /^glass/.test(p.name || '') ? 0.15 : 0.55; g.fillStyle = p.c || '#9aa3ad';
       g.fillRect(X(Math.min(ax, bx)), Y(Math.max(ay, by)), Math.abs(bx - ax) * s, Math.abs(by - ay) * s);
       g.globalAlpha = 1;
+      if (this.hl?.nodes.has(p.node)) this._hlRect(g, X(Math.min(ax, bx)), Y(Math.max(ay, by)), Math.abs(bx - ax) * s, Math.abs(by - ay) * s);
     }
     for (const it of v.items || []) {
       const [l, wd] = it.size || [100, 100];
@@ -75,12 +97,14 @@ export class Fallback2D {
       g.fillStyle = dark ? '#dbe3ea' : '#1c2631'; g.fillText(k, px, py);
       g.fillStyle = dark ? '#33404c' : '#cfd5db'; g.fillRect(px, py + 4, 90, 8);
       g.fillStyle = '#00708c'; g.fillRect(px, py + 4, 90 * Math.max(0, Math.min(1, +val || 0)), 8);
+      if (this.hl?.nodes.has(k)) this._hlRect(g, px, py - 10, 90, 22);
       px += 110; if (px > w - 100) break;
     }
     let lx = 10; const ly = h - 75;
     for (const [tag, on] of Object.entries(v.leds || {})) {
       g.beginPath(); g.arc(lx + 6, ly, 6, 0, Math.PI * 2); g.fillStyle = on ? '#2fd15a' : (dark ? '#3a424b' : '#9aa3ad'); g.fill();
       g.fillStyle = dark ? '#dbe3ea' : '#1c2631'; g.fillText(tag, lx + 15, ly + 4);
+      if (this.hl?.tag === tag) this._ring(g, lx + 6, ly, 10);
       lx += 24 + g.measureText(tag).width; if (lx > w - 60) break;
     }
     // đèn/thiết bị đầu ra (getVisual().outs)
@@ -92,6 +116,7 @@ export class Fallback2D {
       g.fillStyle = on ? c : (dark ? '#2a3038' : '#8d969f'); g.fill();
       if (on) { g.strokeStyle = c; g.lineWidth = 3; g.globalAlpha = 0.35; g.beginPath(); g.arc(ox + 8, oy, 12, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; g.lineWidth = 1; }
       g.fillStyle = dark ? '#dbe3ea' : '#1c2631'; g.fillText(tag, ox + 20, oy + 4);
+      if (this.hl?.tag === tag) this._ring(g, ox + 8, oy, 13);
       ox += 32 + g.measureText(tag).width; if (ox > w - 60) break;
     }
     // bảng LED (displays)

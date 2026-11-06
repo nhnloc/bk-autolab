@@ -189,3 +189,15 @@ button.io-row:hover { background: var(--panel-3); }
   .demo-side { border-left: 0; border-top: 1px solid var(--border); }
   .demo-caption { min-height: 0; }
 }
+
+/* ---- Chỉ vị trí I/O trên mô hình ---- */
+.hl-label { position: absolute; transform: translate(-50%, calc(-100% - 6px)); background: #ffb020; color: #1a1300; font: 600 12px/1.3 ui-monospace, monospace; padding: 2px 7px; border-radius: 4px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.35); z-index: 3; }
+.hl-label::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: #ffb020; }
+.hl-chip { position: absolute; left: 8px; top: 44px; max-width: calc(100% - 16px); background: var(--panel); border: 1px solid #ffb020; border-left-width: 4px; border-radius: 4px; padding: 4px 8px; font-size: 12px; box-shadow: var(--shadow-lg); z-index: 3; pointer-events: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.io-row.located { background: rgba(255, 176, 32, .22); outline: 1px solid #ffb020; }
+div.io-row[tabindex] { cursor: pointer; }
+div.io-row[tabindex]:hover { background: var(--panel-3); }
+.op-panel [data-btn].hl { outline: 3px solid #ffb020; outline-offset: 2px; border-radius: 6px; animation: hl-pulse 1s ease-in-out infinite; }
+@keyframes hl-pulse { 50% { outline-color: rgba(255, 176, 32, .35); } }
+.io-table tr[tabindex] { cursor: pointer; }
+.io-table tr[tabindex]:hover, .io-table tr[tabindex]:focus-visible { background: rgba(255, 176, 32, .18); }
