@@ -1,0 +1,52 @@
+// Khu "Máy": cảnh 3D (góc nhìn đặt sẵn) + bảng nút vận hành + bảng I/O.
+import { h } from '../dom.js';
+import { t } from '../i18n.js';
+import { split } from '../components/ui.js';
+import { machineIo } from '../engine.js';
+import { MachineViewer } from '../../scene/viewer.js';
+import { Fallback2D } from '../../scene/fallback2d.js';
+
+function hasWebGL() {
+  try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
+}
+import { createOperatorPanel } from './operatorPanel.js';
+import { createIoPanel } from './ioPanel.js';
+
+export function createMachineView({ m, getPlc, allowOverride = false, readOnlyPanel = false, splitKey = 'machine-v', compact = false }) {
+  let lastVisual = null;
+  const getVisual = () => lastVisual;
+  const host = h('div.viewer-host');
+  const badge = h('div.viewer-badge', { hidden: true }, t('mv.placeholder'));
+  const crash = h('div.viewer-crash', { role: 'alert', hidden: true });
+  const views = h('div.view-btns', { role: 'group', 'aria-label': t('mv.views') },
+    ...[['iso', t('mv.iso')], ['front', t('mv.front')], ['side', t('mv.side')], ['top', t('mv.top')]].map(([id, l]) =>
+      h('button.btn.sm', { type: 'button', onclick: () => viewer.setView(id) }, l)));
+  const stage = h('div.viewer-stage', host, views, badge, crash, h('div.viewer-loading', t('mv.loading')));
+  const inputTags = machineIo(m.def).inputs.map((x) => x.tag);
+  const opts = { machineId: m.def?.id || m.id, inputTags };
+  let viewer;
+  if (hasWebGL()) { try { viewer = new MachineViewer(host, opts); } catch (e) { console.info('[viewer] WebGL lỗi, dùng sơ đồ 2D:', e?.message); viewer = null; } }
+  if (!viewer) { host.replaceChildren(); viewer = new Fallback2D(host, opts); views.hidden = true; }
+  viewer.setSource(() => { lastVisual = m.getVisual(); return lastVisual; });
+  viewer.getOutputs = () => m.outputs;
+  viewer.load().then(() => { stage.querySelector('.viewer-loading')?.remove(); badge.hidden = !viewer.isPlaceholder; }).catch((e) => console.warn(e));
+
+  const op = createOperatorPanel({ m, getVisual, readOnly: readOnlyPanel });
+  const io = createIoPanel({ m, getPlc, allowOverride });
+  const bottom = h('div.mv-bottom', op.el, io.el);
+  const el = compact ? h('div.machine-view.compact', stage, bottom) : h('div.machine-view', split({ dir: 'v', a: stage, b: bottom, ratio: 0.6, min: 140, key: splitKey }));
+
+  const timer = setInterval(() => {
+    op.refresh(); io.refresh();
+    const c = lastVisual?.crashed;
+    crash.hidden = !c; if (c) crash.textContent = '⚠ ' + t('op.crashed') + ' ' + (c.message || '');
+  }, 100);
+  const onTheme = () => viewer.applyTheme();
+  window.addEventListener('bk-theme', onTheme);
+
+  return {
+    el, viewer, getVisual,
+    clearForces: () => io.clearForces(),
+    dispose() { clearInterval(timer); window.removeEventListener('bk-theme', onTheme); viewer.dispose(); },
+  };
+}

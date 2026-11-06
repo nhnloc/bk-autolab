@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><base href="../"><title>LOADING</title>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+<style>html,body{margin:0;height:100%}#v{width:100vw;height:100vh}</style></head><body><div id="v"></div>
+<script type="module">
+// Trang kiểm tra 3D độc lập: ?m=<machineId>&t=<giây chạy lời giải mẫu>
+import { MachineViewer } from './src/scene/viewer.js';
+import { PlcRuntime } from './src/plc/runtime.js';
+import { createMachine } from './src/sim/index.js';
+import { LABS, solutionProject, loadSolutions } from './src/labs/index.js';
+await loadSolutions();
+const q = new URLSearchParams(location.search); const id = q.get('m') || 'erector'; const secs = +(q.get('t') || 6);
+try {
+  const lab = LABS.find((l) => l.machineId === id);
+  const m = createMachine(id);
+  const plc = new PlcRuntime(null, { manualClock: true }); plc.load(solutionProject(lab)); plc.attach(m); plc.start();
+  plc.runFor(300); m.press('Start', true); plc.runFor(200); m.press('Start', false); plc.runFor(secs * 1000);
+  const base = new URL('..', location.href).href;
+  const v = new MachineViewer(document.getElementById('v'), { machineId: id });
+  v.setSource(() => m.getVisual());
+  if (v.load) await v.load();
+  let n = 0; const tick = () => { plc.runFor(16); if (++n < 40) requestAnimationFrame(tick); else document.title = 'READY'; }; requestAnimationFrame(tick);
+} catch (e) { document.title = 'ERR ' + e.message; console.error(e); }
+</script></body></html>

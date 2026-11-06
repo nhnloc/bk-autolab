@@ -1,0 +1,1570 @@
+{
+ "units": "m",
+ "up": "Y",
+ "notes": {
+  "bbox": "bbox in three.js metres, Y-up (FreeCAD (x,y,z) mm -> (x, z, -y)/1000); bboxFC in FreeCAD mm Z-up",
+  "axisFC": "FreeCAD axes (Z-up); rotation sign = right-hand rule about axisFC",
+  "belt": "belt nodes carry TEXCOORD_0: u = metres along uvAxisFC (direction of travel); scroll texture offset.x by +speed*t (m/s) to move material along uvAxisFC",
+  "sensor": "sen_<TAG> node origin = LED position; mesh is a small LED sphere (material \"led\")",
+  "lamp": "static_lamp_<color> = stack-light segments (optional to light up; signal = suggested source)",
+  "refs": "reference points in FreeCAD mm (Z-up) for spawning procedural items"
+ },
+ "machines": {
+  "feeder": {
+   "file": "feeder.glb",
+   "title": "B\u1ed9 c\u1ea5p ph\u00f4i t\u1eeb \u1ed5 ch\u1ee9a",
+   "accent": "#12808A",
+   "bbox": [
+    [
+     -0.42,
+     -0.016,
+     -0.5
+    ],
+    [
+     1.27,
+     1.228,
+     0.56
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -420.0,
+     -560.0,
+     -16.0
+    ],
+    [
+     1270.0,
+     500.0,
+     1228.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.643,
+     1.483,
+     1.765
+    ],
+    "target": [
+     0.425,
+     0.482,
+     0.03
+    ],
+    "fov": 45.0
+   },
+   "triangles": 17867,
+   "bytes": 724248,
+   "nodes": {
+    "belt_1": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "sen_B5": {
+     "type": "sensor"
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 120
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      -1,
+      0
+     ],
+     "travel": 30
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "sen_B4": {
+     "type": "sensor"
+    },
+    "sen_B3": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "beltTopZ": 800.0,
+    "beltX": [
+     200,
+     800
+    ],
+    "beltWidth": 110,
+    "magazineAxis": [
+     150.0,
+     0
+    ],
+    "puckDiameter": 50.0,
+    "puckHeight": 25.0,
+    "bottomPuckCentre": [
+     150.0,
+     0,
+     812.5
+    ],
+    "pusherFaceRestX": 120.0,
+    "pusherFaceExtendedX": 240.0,
+    "separatorFaceRestY": 55.0,
+    "separatorFaceExtendedY": 25.0,
+    "magazineTopZ": 1140,
+    "magazineCapacity": 12,
+    "endStopX": 780,
+    "puckStopCentre": [
+     755,
+     0,
+     812.5
+    ]
+   }
+  },
+  "escapement": {
+   "file": "escapement.glb",
+   "title": "B\u1ed9 t\u00e1ch th\u00f9ng b\u0103ng t\u1ea3i t\u00edch l\u0169y",
+   "accent": "#1C4F8F",
+   "bbox": [
+    [
+     -0.3,
+     -0.016,
+     -0.62
+    ],
+    [
+     2.5,
+     1.568,
+     0.76
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -300.0,
+     -760.0,
+     -16.0
+    ],
+    [
+     2500.0,
+     620.0,
+     1568.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.49,
+     2.108,
+     2.654
+    ],
+    "target": [
+     1.1,
+     0.618,
+     0.07
+    ],
+    "fov": 45.0
+   },
+   "triangles": 20676,
+   "bytes": 832788,
+   "nodes": {
+    "rollers": {
+     "type": "rollers",
+     "rollerAxisFC": [
+      0,
+      1,
+      0
+     ],
+     "rollerRadius": 25,
+     "rollerX": [
+      50,
+      150,
+      250,
+      350,
+      450,
+      550,
+      650,
+      750,
+      850,
+      950,
+      1050,
+      1150,
+      1250,
+      1350,
+      1450,
+      1550,
+      1650,
+      1750,
+      1850,
+      1950
+     ],
+     "zones": {
+      "M1": [
+       0,
+       1400
+      ],
+      "M2": [
+       1400,
+       2000
+      ]
+     }
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 40
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 40
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "sen_B3": {
+     "type": "sensor"
+    },
+    "sen_B4": {
+     "type": "sensor"
+    },
+    "sen_B5": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "rollerTopZ": 800.0,
+    "conveyorX": [
+     0,
+     2000
+    ],
+    "clearWidth": 244.0,
+    "box": [
+     300.0,
+     200.0,
+     200.0
+    ],
+    "stop1FaceX": 1088.0,
+    "stop2FaceX": 1400.0,
+    "stopRiseZ": 40,
+    "box1CentreAtStop2": [
+     1250.0,
+     0,
+     900.0
+    ],
+    "box2CentreAtStop1": [
+     938.0,
+     0,
+     900.0
+    ],
+    "sensorX": {
+     "B3": 1250,
+     "B4": 500,
+     "B5": 1900
+    }
+   }
+  },
+  "diverter": {
+   "file": "diverter.glb",
+   "title": "H\u1ec7 ph\u00e2n ph\u1ed1i th\u00f9ng 3 l\u00e0n",
+   "accent": "#12808A",
+   "bbox": [
+    [
+     -0.35,
+     -0.016,
+     -1.65
+    ],
+    [
+     3.45,
+     1.568,
+     1.05
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -350.0,
+     -1050.0,
+     -16.0
+    ],
+    [
+     3450.0,
+     1650.0,
+     1568.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.686,
+     2.714,
+     3.334
+    ],
+    "target": [
+     1.55,
+     0.618,
+     -0.3
+    ],
+    "fov": 45.0
+   },
+   "triangles": 41538,
+   "bytes": 1704152,
+   "nodes": {
+    "belt_main": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 420
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "sen_L1F": {
+     "type": "sensor"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 420
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "sen_L2F": {
+     "type": "sensor"
+    },
+    "cyl_3A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 420
+    },
+    "sen_3B1": {
+     "type": "sensor"
+    },
+    "sen_3B2": {
+     "type": "sensor"
+    },
+    "sen_L3F": {
+     "type": "sensor"
+    },
+    "sen_B0": {
+     "type": "sensor"
+    },
+    "sen_BC": {
+     "type": "sensor"
+    },
+    "sen_B1": {
+     "type": "sensor"
+    },
+    "sen_B2": {
+     "type": "sensor"
+    },
+    "sen_B3": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "beltTopZ": 800.0,
+    "beltX": [
+     0,
+     3000
+    ],
+    "beltWidth": 400.0,
+    "laneCentresX": [
+     900.0,
+     1700.0,
+     2500.0
+    ],
+    "laneEntryY": 250.0,
+    "laneLength": 1200.0,
+    "laneClearWidth": 360.0,
+    "laneSlopeDeg": 3.0,
+    "laneEntryTopZ": 792.0,
+    "laneEndStopY": 1445.0,
+    "pusherFaceRestY": -215.0,
+    "pusherTravel": 420,
+    "pusherPlate": [
+     350.0,
+     150.0
+    ],
+    "readerX": 300,
+    "box": [
+     300,
+     200,
+     200
+    ]
+   }
+  },
+  "erector": {
+   "file": "erector.glb",
+   "title": "M\u00e1y d\u1ef1ng th\u00f9ng carton",
+   "accent": "#1C4F8F",
+   "bbox": [
+    [
+     -1.0,
+     -0.016,
+     -1.6
+    ],
+    [
+     2.05,
+     2.0,
+     1.05
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -1000.0,
+     -1050.0,
+     -16.0
+    ],
+    [
+     2050.0,
+     1600.0,
+     2000.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -1.526,
+     2.713,
+     3.058
+    ],
+    "target": [
+     0.525,
+     0.79,
+     -0.275
+    ],
+    "fov": 45.0
+   },
+   "triangles": 33070,
+   "bytes": 1351016,
+   "nodes": {
+    "magazine_pusher": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      -1,
+      0
+     ],
+     "travel": 600
+    },
+    "sen_MagLow": {
+     "type": "sensor"
+    },
+    "sen_MagEmpty": {
+     "type": "sensor"
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 350
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "arm_2A": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 90
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "flap_3A": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 90
+    },
+    "sen_3B1": {
+     "type": "sensor"
+    },
+    "sen_3B2": {
+     "type": "sensor"
+    },
+    "flap_4A": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": -90
+    },
+    "sen_4B1": {
+     "type": "sensor"
+    },
+    "sen_4B2": {
+     "type": "sensor"
+    },
+    "cyl_5A_rod": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 500
+    },
+    "sen_5B1": {
+     "type": "sensor"
+    },
+    "sen_5B2": {
+     "type": "sensor"
+    },
+    "sen_TapeOK": {
+     "type": "sensor"
+    },
+    "belt_out": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "sen_BoxOut": {
+     "type": "sensor"
+    },
+    "sen_DoorOK": {
+     "type": "sensor"
+    },
+    "sen_VacOK": {
+     "type": "sensor"
+    },
+    "sen_AirOK": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Low"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "caseSize": [
+     300.0,
+     200.0,
+     200.0
+    ],
+    "caseAtErect": [
+     [
+      200.0,
+      -100.0,
+      800.0
+     ],
+     [
+      500.0,
+      100.0,
+      1000.0
+     ]
+    ],
+    "caseAfterPush": [
+     [
+      700.0,
+      -100.0,
+      800.0
+     ],
+     [
+      1000.0,
+      100.0,
+      1000.0
+     ]
+    ],
+    "flapLength": 100.0,
+    "blankFlat": {
+     "x": [
+      200.0,
+      700.0
+     ],
+     "z": [
+      700.0,
+      1100.0
+     ],
+     "foldX": 500.0
+    },
+    "magazine": {
+     "pickFaceY": 240.0,
+     "pusherRestY": 850.0,
+     "pusherEmptyY": 250.0,
+     "blankLeanDeg": 10,
+     "blankBottomZ": 700.0,
+     "stackDirFC": [
+      0,
+      1,
+      0
+     ]
+    },
+    "cupFaceRestY": -110.0,
+    "cupFaceExtendedY": 240.0,
+    "arm2APivot": [
+     500.0,
+     -105.0
+    ],
+    "flap3APivot": [
+     508.0,
+     0,
+     790.0
+    ],
+    "flap4APivot": [
+     192.0,
+     0,
+     790.0
+    ],
+    "pusher5AFaceRestX": 190.0,
+    "tapeHeadX": [
+     660.0,
+     840.0
+    ],
+    "beltOutX": [
+     720.0,
+     1850
+    ],
+    "beltTopZ": 800.0
+   }
+  },
+  "sealer": {
+   "file": "sealer.glb",
+   "title": "M\u00e1y d\u00e1n th\u00f9ng",
+   "accent": "#12808A",
+   "bbox": [
+    [
+     -0.45,
+     -0.016,
+     -0.8
+    ],
+    [
+     2.15,
+     1.8,
+     0.95
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -450.0,
+     -950.0,
+     -16.0
+    ],
+    [
+     2150.0,
+     800.0,
+     1800.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.795,
+     2.253,
+     2.749
+    ],
+    "target": [
+     0.85,
+     0.71,
+     0.075
+    ],
+    "fov": 45.0
+   },
+   "triangles": 35416,
+   "bytes": 1423776,
+   "nodes": {
+    "belt_in": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 40
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "flap_2A": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 90
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "flap_3A": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": -120
+    },
+    "sen_3B1": {
+     "type": "sensor"
+    },
+    "sen_3B2": {
+     "type": "sensor"
+    },
+    "cyl_4A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      -1
+     ],
+     "travel": 80
+    },
+    "sen_4B1": {
+     "type": "sensor"
+    },
+    "sen_4B2": {
+     "type": "sensor"
+    },
+    "belt_side_L": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "belt_side_R": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "sen_TapeOK": {
+     "type": "sensor"
+    },
+    "sen_BIn": {
+     "type": "sensor"
+    },
+    "sen_BPos": {
+     "type": "sensor"
+    },
+    "sen_BOut": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "beltTopZ": 800.0,
+    "beltInX": [
+     0,
+     595
+    ],
+    "bedX": [
+     615,
+     1800
+    ],
+    "box": [
+     300.0,
+     200.0,
+     200.0
+    ],
+    "flapLength": 100.0,
+    "stopFaceX": 600.0,
+    "caseAtStop": [
+     [
+      300.0,
+      -100.0,
+      800.0
+     ],
+     [
+      600.0,
+      100.0,
+      1000.0
+     ]
+    ],
+    "flap2APivot": [
+     560.0,
+     0,
+     1112.0
+    ],
+    "flap3APivot": [
+     340.0,
+     0,
+     1112.0
+    ],
+    "pressPlateBottomRestZ": 1069.0,
+    "sideBeltsX": [
+     470,
+     1450
+    ],
+    "tapeHeadX": [
+     1000,
+     1190
+    ],
+    "sensorX": {
+     "BIn": 120,
+     "BPos": 450.0,
+     "BOut": 1700
+    }
+   }
+  },
+  "pickplace": {
+   "file": "pickplace.glb",
+   "title": "Tr\u1ea1m g\u1eafp-\u0111\u1eb7t 2 tr\u1ee5c kh\u00ed n\u00e9n",
+   "accent": "#1C4F8F",
+   "bbox": [
+    [
+     -0.3,
+     -0.016,
+     -0.95
+    ],
+    [
+     2.1,
+     1.568,
+     0.9
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -300.0,
+     -900.0,
+     -16.0
+    ],
+    [
+     2100.0,
+     950.0,
+     1568.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.653,
+     2.074,
+     2.499
+    ],
+    "target": [
+     0.9,
+     0.618,
+     -0.025
+    ],
+    "fov": 45.0
+   },
+   "triangles": 23240,
+   "bytes": 940796,
+   "nodes": {
+    "belt_in": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "sen_PartAtPick": {
+     "type": "sensor"
+    },
+    "belt_out": {
+     "type": "belt",
+     "uvAxisFC": [
+      0,
+      1,
+      0
+     ]
+    },
+    "sen_BoxAtPlace": {
+     "type": "sensor"
+    },
+    "sen_BoxStep": {
+     "type": "sensor"
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "slide_1A": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 500
+    },
+    "sen_2B1": {
+     "type": "sensor",
+     "parent": "slide_1A"
+    },
+    "sen_2B2": {
+     "type": "sensor",
+     "parent": "slide_1A"
+    },
+    "sen_VacOK": {
+     "type": "sensor",
+     "parent": "slide_1A"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      -1
+     ],
+     "travel": 150,
+     "parent": "slide_1A"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "beltInTopZ": 800.0,
+    "beltInX": [
+     0,
+     795
+    ],
+    "product": [
+     70.0,
+     70.0,
+     60.0
+    ],
+    "pickCentre": [
+     800.0,
+     0,
+     800.0
+    ],
+    "stopFaceX": 835.0,
+    "placeCentre": [
+     1300.0,
+     0,
+     760.0
+    ],
+    "beltOutTopZ": 760.0,
+    "beltOutY": [
+     -750,
+     750
+    ],
+    "case": [
+     180.0,
+     260.0,
+     100.0
+    ],
+    "caseCells": [
+     2,
+     3
+    ],
+    "cellPitch": 80,
+    "cupLipRestZ": 1010.0,
+    "cupLipDownZ": 860.0,
+    "cupXY": [
+     800.0,
+     0.0
+    ]
+   }
+  },
+  "indexer": {
+   "file": "indexer.glb",
+   "title": "B\u00e0n xoay chia 4 v\u1ecb tr\u00ed",
+   "accent": "#12808A",
+   "bbox": [
+    [
+     -0.65,
+     -0.016,
+     -0.8
+    ],
+    [
+     1.7,
+     1.75,
+     0.9
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -650.0,
+     -900.0,
+     -16.0
+    ],
+    [
+     1700.0,
+     800.0,
+     1750.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -1.018,
+     2.137,
+     2.557
+    ],
+    "target": [
+     0.525,
+     0.69,
+     0.05
+    ],
+    "fov": 45.0
+   },
+   "triangles": 30994,
+   "bytes": 1226104,
+   "nodes": {
+    "table": {
+     "type": "rotate",
+     "axisFC": [
+      0,
+      0,
+      -1
+     ],
+     "travel": 360,
+     "note": "clockwise seen from above: station 0 -> 1 -> 2 -> 3, 90 deg per index"
+    },
+    "sen_IdxPos": {
+     "type": "sensor"
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 30
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      -1
+     ],
+     "travel": 80
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "sen_FeedAvail": {
+     "type": "sensor"
+    },
+    "cyl_4A_rod": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 200
+    },
+    "sen_4B1": {
+     "type": "sensor"
+    },
+    "sen_4B2": {
+     "type": "sensor"
+    },
+    "sen_P0": {
+     "type": "sensor"
+    },
+    "sen_P2": {
+     "type": "sensor"
+    },
+    "sen_HeightOK": {
+     "type": "sensor"
+    },
+    "cyl_3A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      -1,
+      0
+     ],
+     "travel": 200
+    },
+    "sen_3B1": {
+     "type": "sensor"
+    },
+    "sen_3B2": {
+     "type": "sensor"
+    },
+    "cyl_5A_rod": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 200
+    },
+    "sen_5B1": {
+     "type": "sensor"
+    },
+    "sen_5B2": {
+     "type": "sensor"
+    },
+    "sen_P3": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "tableCentre": [
+     600.0,
+     0.0,
+     800.0
+    ],
+    "tableRadius": 400.0,
+    "nestRadius": 360.0,
+    "nestPadTopZ": 803.0,
+    "part": [
+     50.0,
+     25.0
+    ],
+    "stations": {
+     "0": [
+      240.0,
+      0.0
+     ],
+     "1": [
+      600.0,
+      360.0
+     ],
+     "2": [
+      960.0,
+      0.0
+     ],
+     "3": [
+      600.0,
+      -360.0
+     ]
+    },
+    "stationAnglesDeg": {
+     "0": 180,
+     "1": 90,
+     "2": 0,
+     "3": 270
+    },
+    "feedMagazineAxis": [
+     40.0,
+     0
+    ],
+    "feedFaceRestX": 10.0,
+    "okBladeFaceRestY": -332.0,
+    "ngBladeFaceRestX": 569.9999999999999,
+    "pressHeadBottomRestZ": 908.0,
+    "okToteCentre": [
+     599.9999999999999,
+     -790,
+     640.0
+    ],
+    "ngBinCentre": [
+     1160,
+     -360.0,
+     640.0
+    ]
+   }
+  },
+  "palletizer": {
+   "file": "palletizer.glb",
+   "title": "M\u00e1y x\u1ebfp pallet kh\u00ed n\u00e9n",
+   "accent": "#1C4F8F",
+   "bbox": [
+    [
+     -0.45,
+     -0.016,
+     -1.65
+    ],
+    [
+     3.35,
+     2.0,
+     1.15
+    ]
+   ],
+   "bboxUnits": "m (three.js, Y-up)",
+   "bboxFC": [
+    [
+     -450.0,
+     -1150.0,
+     -16.0
+    ],
+    [
+     3350.0,
+     1650.0,
+     2000.0
+    ]
+   ],
+   "camera": {
+    "pos": [
+     -0.881,
+     2.976,
+     3.539
+    ],
+    "target": [
+     1.45,
+     0.79,
+     -0.25
+    ],
+    "fov": 45.0
+   },
+   "triangles": 36964,
+   "bytes": 1535556,
+   "nodes": {
+    "belt_in": {
+     "type": "belt",
+     "uvAxisFC": [
+      1,
+      0,
+      0
+     ]
+    },
+    "cyl_1A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 40
+    },
+    "sen_1B1": {
+     "type": "sensor"
+    },
+    "sen_1B2": {
+     "type": "sensor"
+    },
+    "cyl_2A_rod": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      1,
+      0
+     ],
+     "travel": 650
+    },
+    "sen_2B1": {
+     "type": "sensor"
+    },
+    "sen_2B2": {
+     "type": "sensor"
+    },
+    "plate_3A_L": {
+     "type": "translate",
+     "axisFC": [
+      -1,
+      0,
+      0
+     ],
+     "travel": 450
+    },
+    "sen_3B1": {
+     "type": "sensor"
+    },
+    "sen_3B2": {
+     "type": "sensor"
+    },
+    "plate_3A_R": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 450
+    },
+    "lift": {
+     "type": "translate",
+     "axisFC": [
+      0,
+      0,
+      1
+     ],
+     "travel": 630.0
+    },
+    "sen_PalletIn": {
+     "type": "sensor",
+     "parent": "lift"
+    },
+    "pallet": {
+     "type": "translate",
+     "axisFC": [
+      1,
+      0,
+      0
+     ],
+     "travel": 1500,
+     "parent": "lift"
+    },
+    "sen_LiftBottom": {
+     "type": "sensor"
+    },
+    "sen_LiftTop": {
+     "type": "sensor"
+    },
+    "sen_LayerLvl": {
+     "type": "sensor"
+    },
+    "sen_PalletOut": {
+     "type": "sensor"
+    },
+    "sen_BIn": {
+     "type": "sensor"
+    },
+    "sen_RowFull": {
+     "type": "sensor"
+    },
+    "static_lamp_green": {
+     "type": "lamp",
+     "color": "green",
+     "signal": "H_Run"
+    },
+    "static_lamp_amber": {
+     "type": "lamp",
+     "color": "amber",
+     "signal": "H_Warn"
+    },
+    "static_lamp_red": {
+     "type": "lamp",
+     "color": "red",
+     "signal": "H_Fault"
+    }
+   },
+   "refs": {
+    "beltTopZ": 800.0,
+    "beltInX": [
+     0,
+     1395.0
+    ],
+    "box": [
+     400.0,
+     300.0,
+     250.0
+    ],
+    "stopFaceX": 1400.0,
+    "rowX": [
+     600.0,
+     1400.0
+    ],
+    "pusherFaceRestY": -150.0,
+    "pusherTravel": 650,
+    "layerPlates": {
+     "topZ": 800.0,
+     "x": [
+      600.0,
+      1400.0
+     ],
+     "y": [
+      500.0,
+      1100.0
+     ],
+     "splitX": 1000.0
+    },
+    "backWallY": 1100.0,
+    "pallet": [
+     1000.0,
+     800.0,
+     100.0
+    ],
+    "palletCentre": [
+     1000.0,
+     800.0
+    ],
+    "palletTopRestZ": 150.0,
+    "liftTravel": 630.0,
+    "palletTopAtLiftTopZ": 780.0,
+    "palletOutTravel": 1500,
+    "palletOutConveyorX": [
+     1640.0,
+     3150.0
+    ],
+    "layerLvlBeamZ": 785.0,
+    "layersPerPallet": 3
+   }
+  }
+ }
+}
